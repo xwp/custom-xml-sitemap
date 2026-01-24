@@ -1,6 +1,6 @@
 /vendor/
 /node_modules/
-/build/
+/assets/build/
 .phpunit.result.cache
 .phpstan.result.cache
 .DS_Store
