@@ -5,6 +5,15 @@
 	<!-- Use the WordPress-VIP-Go standard -->
 	<rule ref="WordPress-VIP-Go"/>
 
+	<!-- Configure text domain for i18n checks -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="custom-xml-sitemap"/>
+			</property>
+		</properties>
+	</rule>
+
 	<!-- Check the src directory and main file -->
 	<file>./src</file>
 	<file>./custom-xml-sitemap.php</file>

@@ -48,6 +48,22 @@ if ( ! class_exists( 'ActionScheduler_Store' ) ) {
 }
 
 /**
+ * Load plugin text domain for translations.
+ *
+ * Loads translation files from the /languages directory.
+ *
+ * @return void
+ */
+function load_textdomain(): void {
+	load_plugin_textdomain(
+		'custom-xml-sitemap',
+		false,
+		dirname( plugin_basename( __FILE__ ) ) . '/languages'
+	);
+}
+add_action( 'init', __NAMESPACE__ . '\\load_textdomain' );
+
+/**
  * Initialize the plugin on plugins_loaded hook.
  *
  * Uses plugins_loaded to ensure all dependencies are available.
