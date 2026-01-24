@@ -33,9 +33,40 @@ wp action-scheduler run
 
 ## Installation
 
-1. Upload the plugin folder to the `/wp-content/plugins/` directory.
-2. Activate the plugin through the 'Plugins' menu in WordPress.
-3. Navigate to **Custom Sitemaps** in the admin menu to create sitemaps.
+### Via Composer (Recommended)
+
+```bash
+composer require xwp/custom-xml-sitemap
+```
+
+The plugin and its dependencies (Action Scheduler) will be installed automatically.
+
+### Manual Installation
+
+1. Download the latest release zip from [GitHub Releases](https://github.com/xwp/custom-xml-sitemap/releases)
+2. Upload the zip file via **Plugins > Add New > Upload Plugin** in WordPress admin
+3. Activate the plugin through the 'Plugins' menu
+
+### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/xwp/custom-xml-sitemap.git
+
+# Install dependencies
+cd custom-xml-sitemap
+composer install
+npm install
+
+# Build assets
+npm run build
+```
+
+Then copy the plugin folder to `/wp-content/plugins/` and activate.
+
+### After Installation
+
+Navigate to **Custom Sitemaps** in the admin menu to create your first sitemap.
 
 ## Sitemap URLs
 
