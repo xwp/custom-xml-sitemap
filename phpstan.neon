@@ -1,0 +1,26 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+    level: 8
+    paths:
+        - src/
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    scanFiles:
+        - custom-xml-sitemap.php
+        - vendor/woocommerce/action-scheduler/functions.php
+        - vendor/wp-cli/wp-cli/php/class-wp-cli.php
+        - vendor/wp-cli/wp-cli/php/class-wp-cli-command.php
+        - vendor/wp-cli/wp-cli/php/utils.php
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        # WordPress get_posts returns int|WP_Post based on 'fields' parameter.
+        -
+            message: '#should return array<WP_Post> but returns array<int\|WP_Post>#'
+            reportUnmatched: false
+        # WordPress get_query_var returns mixed.
+        -
+            message: '#expects string, mixed given#'
+            path: src/Sitemap_Router.php
+            reportUnmatched: false

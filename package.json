@@ -1,0 +1,25 @@
+{
+	"name": "custom-xml-sitemap",
+	"version": "1.0.0",
+	"description": "Custom taxonomy-based XML sitemap generator for WordPress.",
+	"author": "XWP",
+	"license": "GPL-2.0-or-later",
+	"scripts": {
+		"build": "wp-scripts build",
+		"start": "wp-scripts start",
+		"lint:js": "wp-scripts lint-js",
+		"lint:js:fix": "wp-scripts lint-js --fix",
+		"wp-env": "wp-env",
+		"env:start": "wp-env start",
+		"env:stop": "wp-env stop",
+		"env:destroy": "wp-env destroy",
+		"composer": "wp-env run cli --env-cwd=wp-content/plugins/custom-xml-sitemap composer",
+		"composer:tests-cli": "wp-env run tests-cli --env-cwd=wp-content/plugins/custom-xml-sitemap composer",
+		"test:php": "wp-env run tests-cli --env-cwd=wp-content/plugins/custom-xml-sitemap ./vendor/bin/phpunit"
+	},
+	"devDependencies": {
+		"@babel/runtime": "^7.28.6",
+		"@wordpress/env": "^10.0.0",
+		"@wordpress/scripts": "^28.0.0"
+	}
+}
