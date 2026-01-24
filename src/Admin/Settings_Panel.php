@@ -52,7 +52,10 @@ class Settings_Panel {
 		// Enqueue admin scripts.
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_scripts' ] );
 
-		// Add admin notices for sitemap URL and URL limit warning.
+		// Display sitemap URL after title.
+		add_action( 'edit_form_after_title', [ $this, 'render_sitemap_url' ] );
+
+		// Add admin notices for URL limit warning.
 		add_action( 'admin_notices', [ $this, 'display_admin_notices' ] );
 	}
 
@@ -331,7 +334,31 @@ class Settings_Panel {
 	}
 
 	/**
-	 * Display admin notices for sitemap URL and URL limit warning.
+	 * Render sitemap URL after the title field.
+	 *
+	 * @param \WP_Post $post Post object.
+	 * @return void
+	 */
+	public function render_sitemap_url( \WP_Post $post ): void {
+		if ( Sitemap_CPT::POST_TYPE !== $post->post_type ) {
+			return;
+		}
+
+		if ( 'publish' !== $post->post_status || empty( $post->post_name ) ) {
+			return;
+		}
+
+		$sitemap_url = home_url( "/sitemaps/{$post->post_name}/index.xml" );
+		?>
+		<div class="cxs-sitemap-url" style="margin: 10px 0 20px; padding: 10px 12px; background: #f0f6fc; border-left: 4px solid #72aee6;">
+			<strong><?php esc_html_e( 'Sitemap URL:', 'custom-xml-sitemap' ); ?></strong>
+			<a href="<?php echo esc_url( $sitemap_url ); ?>" target="_blank" style="margin-left: 5px;"><?php echo esc_html( $sitemap_url ); ?></a>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Display admin notices for URL limit warning.
 	 *
 	 * @return void
 	 */
@@ -345,15 +372,6 @@ class Settings_Panel {
 		if ( ! $post || 'publish' !== $post->post_status ) {
 			return;
 		}
-
-		// Display sitemap URL notice.
-		$sitemap_url = home_url( "/sitemaps/{$post->post_name}/index.xml" );
-		printf(
-			'<div class="notice notice-info"><p>%s <a href="%s" target="_blank">%s</a></p></div>',
-			esc_html__( 'Sitemap URL:', 'custom-xml-sitemap' ),
-			esc_url( $sitemap_url ),
-			esc_html( $sitemap_url )
-		);
 
 		// Check for URL limit warning.
 		$generator = new Sitemap_Generator( $post );
