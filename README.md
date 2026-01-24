@@ -56,10 +56,10 @@ git clone https://github.com/xwp/custom-xml-sitemap.git
 # Install dependencies
 cd custom-xml-sitemap
 composer install
-npm install
+pnpm install
 
 # Build assets
-npm run build
+pnpm run build
 ```
 
 Then copy the plugin folder to `/wp-content/plugins/` and activate.
@@ -137,16 +137,16 @@ add_action( 'cxs_sitemap_generated', function( $sitemap_id, $stats ) {
 ### Installation
 ```bash
 composer install
-npm install
+pnpm install
 ```
 
 ### Running Tests
 ```bash
 # Start wp-env Docker environment
-npm run env:start
+pnpm run env:start
 
 # Run PHPUnit tests
-npm run test:php
+pnpm run test:php
 
 # Run PHP Code Sniffer
 composer lint
@@ -157,7 +157,7 @@ composer phpstan
 
 ### Build Assets
 ```bash
-npm run build
+pnpm run build
 ```
 
 ## License

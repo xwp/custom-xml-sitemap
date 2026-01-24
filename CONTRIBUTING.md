@@ -6,6 +6,7 @@
 
 - PHP 8.4+
 - Node.js 20+
+- pnpm 9+
 - Composer 2+
 - Docker (for wp-env)
 
@@ -18,23 +19,23 @@ cd custom-xml-sitemap
 
 # Install dependencies
 composer install
-npm install
+pnpm install
 
 # Build assets
-npm run build
+pnpm run build
 
 # Start local environment
-npm run env:start
+pnpm run env:start
 ```
 
 ### Local Development
 
 ```bash
 # Start wp-env Docker environment
-npm run env:start
+pnpm run env:start
 
 # Watch for JS changes
-npm run start
+pnpm run start
 
 # Run PHP linting
 composer lint
@@ -43,10 +44,10 @@ composer lint
 composer phpstan
 
 # Run PHPUnit tests
-npm run test:php
+pnpm run test:php
 
 # Generate translation POT file
-npm run i18n:pot
+pnpm run i18n:pot
 ```
 
 ### Admin Access
@@ -60,7 +61,7 @@ npm run i18n:pot
 - Follow [WordPress VIP coding standards](https://docs.wpvip.com/technical-references/code-quality/)
 - PHP code must pass PHPCS (`composer lint`)
 - PHP code must pass PHPStan level 8 (`composer phpstan`)
-- All tests must pass (`npm run test:php`)
+- All tests must pass (`pnpm run test:php`)
 
 ## Pull Request Process
 
@@ -70,7 +71,7 @@ npm run i18n:pot
    ```bash
    composer lint
    composer phpstan
-   npm run test:php
+   pnpm run test:php
    ```
 4. Submit a pull request to `main`
 
@@ -98,7 +99,7 @@ Releases are automated via GitHub Actions. The workflow builds JS assets and cre
    ```
 
 4. **GitHub Actions will automatically**:
-   - Build JS assets (`npm run build`)
+   - Build JS assets (`pnpm run build`)
    - Create a release branch with built assets committed
    - Create a version tag (e.g., `1.0.1`)
    - Create a GitHub Release with downloadable zip

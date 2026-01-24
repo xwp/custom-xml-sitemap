@@ -4,6 +4,7 @@
 	"description": "Custom taxonomy-based XML sitemap generator for WordPress.",
 	"author": "XWP",
 	"license": "GPL-2.0-or-later",
+	"packageManager": "pnpm@9.15.4",
 	"scripts": {
 		"build": "wp-scripts build",
 		"start": "wp-scripts start",

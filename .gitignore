@@ -1,6 +1,7 @@
 /vendor/
 /node_modules/
 /assets/build/
+package-lock.json
 .phpunit.result.cache
 .phpstan.result.cache
 .DS_Store
