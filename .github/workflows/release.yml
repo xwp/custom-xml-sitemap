@@ -2,12 +2,12 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - release
 
 jobs:
   release:
-    name: Create Release
+    name: Build and Tag Release
     runs-on: ubuntu-latest
 
     steps:
@@ -35,9 +35,25 @@ jobs:
       - name: Install Composer dependencies (no dev)
         run: composer install --no-dev --prefer-dist --no-progress
 
-      - name: Get version from tag
+      - name: Get version from plugin header
         id: version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=$(grep -Po "Version:\s*\K[0-9.]+" custom-xml-sitemap.php)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create release tag with built assets
+        run: |
+          echo "Releasing version ${{ steps.version.outputs.version }} ..."
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git checkout -b "release-${{ steps.version.outputs.version }}"
+          git add -f assets/build/*
+          git add -f vendor/*
+          git commit -m "Release ${{ steps.version.outputs.version }}"
+          git tag "${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create release archive
         run: |
@@ -48,6 +64,7 @@ jobs:
             --exclude='node_modules' \
             --exclude='tests' \
             --exclude='.gitignore' \
+            --exclude='.gitattributes' \
             --exclude='.wp-env.json' \
             --exclude='phpcs.xml.dist' \
             --exclude='phpstan.neon' \
@@ -56,8 +73,6 @@ jobs:
             --exclude='webpack.config.js' \
             --exclude='package.json' \
             --exclude='package-lock.json' \
-            --exclude='composer.json' \
-            --exclude='composer.lock' \
             --exclude='PLAN.md' \
             --exclude='assets/src' \
             --exclude='dist' \
@@ -67,6 +82,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ steps.version.outputs.version }}
           files: dist/custom-xml-sitemap-${{ steps.version.outputs.version }}.zip
           generate_release_notes: true
         env:
