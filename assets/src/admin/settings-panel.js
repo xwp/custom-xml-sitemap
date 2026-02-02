@@ -4,13 +4,14 @@
  * Provides the admin UI for configuring custom sitemaps using
  * WordPress components and the REST API for term search.
  *
- * @package XWP\CustomXmlSitemap
+ * @package
  */
 
 import { render, useState, useEffect, useCallback } from '@wordpress/element';
 import {
 	SelectControl,
 	FormTokenField,
+	CheckboxControl,
 	PanelBody,
 	Spinner,
 } from '@wordpress/components';
@@ -20,8 +21,8 @@ import apiFetch from '@wordpress/api-fetch';
 /**
  * Debounce function to limit API calls.
  *
- * @param {Function} func     Function to debounce.
- * @param {number}   wait     Debounce wait time in milliseconds.
+ * @param {Function} func Function to debounce.
+ * @param {number}   wait Debounce wait time in milliseconds.
  * @return {Function} Debounced function.
  */
 function debounce( func, wait ) {
@@ -45,11 +46,13 @@ function debounce( func, wait ) {
  */
 function SettingsPanel() {
 	// Get settings from localized script data.
-	const { postTypes, taxonomies, savedValues, granularities, restUrl } =
+	const { postTypes, taxonomies, savedValues, granularities, imageOptions } =
 		window.cxsSettings || {};
 
 	// State for form values.
-	const [ postType, setPostType ] = useState( savedValues?.postType || 'post' );
+	const [ postType, setPostType ] = useState(
+		savedValues?.postType || 'post'
+	);
 	const [ granularity, setGranularity ] = useState(
 		savedValues?.granularity || 'month'
 	);
@@ -57,6 +60,12 @@ function SettingsPanel() {
 	const [ selectedTerms, setSelectedTerms ] = useState( [] );
 	const [ termSuggestions, setTermSuggestions ] = useState( [] );
 	const [ isLoadingTerms, setIsLoadingTerms ] = useState( false );
+	const [ includeImages, setIncludeImages ] = useState(
+		savedValues?.includeImages || 'none'
+	);
+	const [ includeNews, setIncludeNews ] = useState(
+		savedValues?.includeNews || false
+	);
 
 	// Convert post types object to options array.
 	const postTypeOptions = Object.entries( postTypes || {} ).map(
@@ -68,7 +77,10 @@ function SettingsPanel() {
 
 	// Convert taxonomies object to options array with empty option.
 	const taxonomyOptions = [
-		{ value: '', label: __( '— No taxonomy filter —', 'custom-xml-sitemap' ) },
+		{
+			value: '',
+			label: __( '— No taxonomy filter —', 'custom-xml-sitemap' ),
+		},
 		...Object.entries( taxonomies || {} ).map( ( [ value, data ] ) => ( {
 			value,
 			label: data.label,
@@ -179,16 +191,38 @@ function SettingsPanel() {
 		const granularityInput = document.getElementById( 'cxs-granularity' );
 		const taxonomyInput = document.getElementById( 'cxs-taxonomy' );
 		const termsInput = document.getElementById( 'cxs-taxonomy-terms' );
+		const includeImagesInput =
+			document.getElementById( 'cxs-include-images' );
+		const includeNewsInput = document.getElementById( 'cxs-include-news' );
 
-		if ( postTypeInput ) postTypeInput.value = postType;
-		if ( granularityInput ) granularityInput.value = granularity;
-		if ( taxonomyInput ) taxonomyInput.value = taxonomy;
+		if ( postTypeInput ) {
+			postTypeInput.value = postType;
+		}
+		if ( granularityInput ) {
+			granularityInput.value = granularity;
+		}
+		if ( taxonomyInput ) {
+			taxonomyInput.value = taxonomy;
+		}
 		if ( termsInput ) {
 			termsInput.value = JSON.stringify(
 				selectedTerms.map( ( term ) => term.id )
 			);
 		}
-	}, [ postType, granularity, taxonomy, selectedTerms ] );
+		if ( includeImagesInput ) {
+			includeImagesInput.value = includeImages;
+		}
+		if ( includeNewsInput ) {
+			includeNewsInput.value = includeNews ? '1' : '';
+		}
+	}, [
+		postType,
+		granularity,
+		taxonomy,
+		selectedTerms,
+		includeImages,
+		includeNews,
+	] );
 
 	/**
 	 * Handle taxonomy change.
@@ -212,12 +246,20 @@ function SettingsPanel() {
 		const newSelectedTerms = tokens
 			.map( ( token ) => {
 				// Check if it's already in selected terms.
-				const existing = selectedTerms.find( ( t ) => t.name === token );
-				if ( existing ) return existing;
+				const existing = selectedTerms.find(
+					( t ) => t.name === token
+				);
+				if ( existing ) {
+					return existing;
+				}
 
 				// Check suggestions.
-				const suggested = termSuggestions.find( ( t ) => t.name === token );
-				if ( suggested ) return suggested;
+				const suggested = termSuggestions.find(
+					( t ) => t.name === token
+				);
+				if ( suggested ) {
+					return suggested;
+				}
 
 				return null;
 			} )
@@ -274,13 +316,18 @@ function SettingsPanel() {
 				{ taxonomy && (
 					<div className="cxs-terms-field">
 						<FormTokenField
-							label={ __( 'Filter by Terms', 'custom-xml-sitemap' ) }
+							label={ __(
+								'Filter by Terms',
+								'custom-xml-sitemap'
+							) }
 							value={ selectedTerms.map( ( t ) => t.name ) }
-							suggestions={ termSuggestions.map( ( t ) => t.name ) }
+							suggestions={ termSuggestions.map(
+								( t ) => t.name
+							) }
 							onChange={ handleTermsChange }
 							onInputChange={ handleTermInputChange }
 							placeholder={ __(
-								'Type to search terms...',
+								'Type to search terms…',
 								'custom-xml-sitemap'
 							) }
 						/>
@@ -297,6 +344,30 @@ function SettingsPanel() {
 						</p>
 					</div>
 				) }
+
+				<SelectControl
+					label={ __( 'Include Images', 'custom-xml-sitemap' ) }
+					value={ includeImages }
+					options={ imageOptions || [] }
+					onChange={ setIncludeImages }
+					help={ __(
+						'Add image metadata to sitemap entries for Google Image Search.',
+						'custom-xml-sitemap'
+					) }
+				/>
+
+				<CheckboxControl
+					label={ __(
+						'Include News Metadata',
+						'custom-xml-sitemap'
+					) }
+					checked={ includeNews }
+					onChange={ setIncludeNews }
+					help={ __(
+						'Add news publication metadata for Google News sitemaps.',
+						'custom-xml-sitemap'
+					) }
+				/>
 			</PanelBody>
 		</div>
 	);

@@ -1,7 +1,7 @@
 /**
  * Webpack configuration for Custom XML Sitemap plugin.
  *
- * @package XWP\CustomXmlSitemap
+ * @package
  */
 
 const defaultConfig = require( '@wordpress/scripts/config/webpack.config' );
