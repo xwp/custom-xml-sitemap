@@ -57,6 +57,41 @@ class Sitemap_CPT {
 	public const META_KEY_TAXONOMY_TERMS = 'cxs_taxonomy_terms';
 
 	/**
+	 * Meta key for the include images setting.
+	 *
+	 * @var string
+	 */
+	public const META_KEY_INCLUDE_IMAGES = 'cxs_include_images';
+
+	/**
+	 * Meta key for the include news setting.
+	 *
+	 * @var string
+	 */
+	public const META_KEY_INCLUDE_NEWS = 'cxs_include_news';
+
+	/**
+	 * Include images option: none (no images in sitemap).
+	 *
+	 * @var string
+	 */
+	public const INCLUDE_IMAGES_NONE = 'none';
+
+	/**
+	 * Include images option: featured image only.
+	 *
+	 * @var string
+	 */
+	public const INCLUDE_IMAGES_FEATURED = 'featured';
+
+	/**
+	 * Include images option: all images (featured + content).
+	 *
+	 * @var string
+	 */
+	public const INCLUDE_IMAGES_ALL = 'all';
+
+	/**
 	 * Granularity option: year.
 	 *
 	 * @var string
@@ -138,19 +173,23 @@ class Sitemap_CPT {
 	 * Get sitemap configuration for a specific sitemap post.
 	 *
 	 * @param int $post_id Sitemap post ID.
-	 * @return array{post_type: string, granularity: string, taxonomy: string, terms: array<int>} Configuration array.
+	 * @return array{post_type: string, granularity: string, taxonomy: string, terms: array<int>, include_images: string, include_news: bool} Configuration array.
 	 */
 	public static function get_sitemap_config( int $post_id ): array {
-		$post_type   = get_post_meta( $post_id, self::META_KEY_POST_TYPE, true );
-		$granularity = get_post_meta( $post_id, self::META_KEY_GRANULARITY, true );
-		$taxonomy    = get_post_meta( $post_id, self::META_KEY_TAXONOMY, true );
-		$terms       = get_post_meta( $post_id, self::META_KEY_TAXONOMY_TERMS, true );
+		$post_type      = get_post_meta( $post_id, self::META_KEY_POST_TYPE, true );
+		$granularity    = get_post_meta( $post_id, self::META_KEY_GRANULARITY, true );
+		$taxonomy       = get_post_meta( $post_id, self::META_KEY_TAXONOMY, true );
+		$terms          = get_post_meta( $post_id, self::META_KEY_TAXONOMY_TERMS, true );
+		$include_images = get_post_meta( $post_id, self::META_KEY_INCLUDE_IMAGES, true );
+		$include_news   = get_post_meta( $post_id, self::META_KEY_INCLUDE_NEWS, true );
 
 		return [
-			'post_type'   => ! empty( $post_type ) ? $post_type : 'post',
-			'granularity' => ! empty( $granularity ) ? $granularity : self::GRANULARITY_MONTH,
-			'taxonomy'    => is_string( $taxonomy ) ? $taxonomy : '',
-			'terms'       => is_array( $terms ) ? $terms : [],
+			'post_type'      => ! empty( $post_type ) ? $post_type : 'post',
+			'granularity'    => ! empty( $granularity ) ? $granularity : self::GRANULARITY_MONTH,
+			'taxonomy'       => is_string( $taxonomy ) ? $taxonomy : '',
+			'terms'          => is_array( $terms ) ? $terms : [],
+			'include_images' => ! empty( $include_images ) ? $include_images : self::INCLUDE_IMAGES_NONE,
+			'include_news'   => (bool) $include_news,
 		];
 	}
 
@@ -159,7 +198,7 @@ class Sitemap_CPT {
 	 *
 	 * Results are cached in the object cache and invalidated when any sitemap changes.
 	 *
-	 * @return array<array{post: WP_Post, config: array{post_type: string, granularity: string, taxonomy: string, terms: array<int>}}> Array of sitemap data.
+	 * @return array<array{post: WP_Post, config: array{post_type: string, granularity: string, taxonomy: string, terms: array<int>, include_images: string, include_news: bool}}> Array of sitemap data.
 	 */
 	public static function get_all_sitemap_configs(): array {
 		$cached = wp_cache_get( self::CACHE_KEY_ALL_CONFIGS, self::CACHE_GROUP );
@@ -199,7 +238,7 @@ class Sitemap_CPT {
 	 * Get sitemap configs that use a specific post type.
 	 *
 	 * @param string $post_type Post type slug.
-	 * @return array<array{post: WP_Post, config: array{post_type: string, granularity: string, taxonomy: string, terms: array<int>}}> Array of matching sitemap data.
+	 * @return array<array{post: WP_Post, config: array{post_type: string, granularity: string, taxonomy: string, terms: array<int>, include_images: string, include_news: bool}}> Array of matching sitemap data.
 	 */
 	public static function get_configs_for_post_type( string $post_type ): array {
 		$all_configs = self::get_all_sitemap_configs();
