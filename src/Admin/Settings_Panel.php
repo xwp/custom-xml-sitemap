@@ -102,6 +102,10 @@ class Settings_Panel {
 			id="cxs-taxonomy" value="<?php echo esc_attr( $config['taxonomy'] ); ?>" />
 		<input type="hidden" name="<?php echo esc_attr( Sitemap_CPT::META_KEY_TAXONOMY_TERMS ); ?>" 
 			id="cxs-taxonomy-terms" value="<?php echo esc_attr( (string) wp_json_encode( $config['terms'] ) ); ?>" />
+		<input type="hidden" name="<?php echo esc_attr( Sitemap_CPT::META_KEY_INCLUDE_IMAGES ); ?>" 
+			id="cxs-include-images" value="<?php echo esc_attr( $config['include_images'] ); ?>" />
+		<input type="hidden" name="<?php echo esc_attr( Sitemap_CPT::META_KEY_INCLUDE_NEWS ); ?>" 
+			id="cxs-include-news" value="<?php echo esc_attr( $config['include_news'] ? '1' : '' ); ?>" />
 		<?php
 	}
 
@@ -152,10 +156,12 @@ class Settings_Panel {
 		// Get current post for saved values.
 		global $post;
 		$config = $post ? Sitemap_CPT::get_sitemap_config( $post->ID ) : [
-			'post_type'   => 'post',
-			'granularity' => Sitemap_CPT::GRANULARITY_MONTH,
-			'taxonomy'    => '',
-			'terms'       => [],
+			'post_type'      => 'post',
+			'granularity'    => Sitemap_CPT::GRANULARITY_MONTH,
+			'taxonomy'       => '',
+			'terms'          => [],
+			'include_images' => Sitemap_CPT::INCLUDE_IMAGES_NONE,
+			'include_news'   => false,
 		];
 
 		// Localize script with settings data.
@@ -166,10 +172,12 @@ class Settings_Panel {
 				'postTypes'    => $this->get_available_post_types(),
 				'taxonomies'   => $this->get_available_taxonomies(),
 				'savedValues'  => [
-					'postType'    => $config['post_type'],
-					'granularity' => $config['granularity'],
-					'taxonomy'    => $config['taxonomy'],
-					'terms'       => $config['terms'],
+					'postType'      => $config['post_type'],
+					'granularity'   => $config['granularity'],
+					'taxonomy'      => $config['taxonomy'],
+					'terms'         => $config['terms'],
+					'includeImages' => $config['include_images'],
+					'includeNews'   => $config['include_news'],
 				],
 				'granularities' => [
 					[
@@ -183,6 +191,20 @@ class Settings_Panel {
 					[
 						'value' => Sitemap_CPT::GRANULARITY_DAY,
 						'label' => __( 'Day', 'custom-xml-sitemap' ),
+					],
+				],
+				'imageOptions' => [
+					[
+						'value' => Sitemap_CPT::INCLUDE_IMAGES_NONE,
+						'label' => __( 'None', 'custom-xml-sitemap' ),
+					],
+					[
+						'value' => Sitemap_CPT::INCLUDE_IMAGES_FEATURED,
+						'label' => __( 'Featured Image Only', 'custom-xml-sitemap' ),
+					],
+					[
+						'value' => Sitemap_CPT::INCLUDE_IMAGES_ALL,
+						'label' => __( 'All Images', 'custom-xml-sitemap' ),
 					],
 				],
 				'restUrl'      => rest_url(),
@@ -331,6 +353,23 @@ class Settings_Panel {
 				update_post_meta( $post_id, Sitemap_CPT::META_KEY_TAXONOMY_TERMS, $terms );
 			}
 		}
+
+		// Save include images setting.
+		if ( isset( $_POST[ Sitemap_CPT::META_KEY_INCLUDE_IMAGES ] ) ) {
+			$include_images = sanitize_key( wp_unslash( $_POST[ Sitemap_CPT::META_KEY_INCLUDE_IMAGES ] ) );
+			$valid_options  = [
+				Sitemap_CPT::INCLUDE_IMAGES_NONE,
+				Sitemap_CPT::INCLUDE_IMAGES_FEATURED,
+				Sitemap_CPT::INCLUDE_IMAGES_ALL,
+			];
+			if ( in_array( $include_images, $valid_options, true ) ) {
+				update_post_meta( $post_id, Sitemap_CPT::META_KEY_INCLUDE_IMAGES, $include_images );
+			}
+		}
+
+		// Save include news setting.
+		$include_news = isset( $_POST[ Sitemap_CPT::META_KEY_INCLUDE_NEWS ] ) && ! empty( $_POST[ Sitemap_CPT::META_KEY_INCLUDE_NEWS ] );
+		update_post_meta( $post_id, Sitemap_CPT::META_KEY_INCLUDE_NEWS, $include_news ? '1' : '' );
 	}
 
 	/**
