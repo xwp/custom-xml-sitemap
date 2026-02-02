@@ -60,10 +60,6 @@ class Image_Extension {
 
 		$xml = '';
 		foreach ( $images as $image ) {
-			// Skip data URIs and malformed URLs (WordPress may convert data: to http://).
-			if ( $this->is_invalid_image_url( $image['url'] ) ) {
-				continue;
-			}
 			$xml .= $this->build_image_element( $image['url'] );
 		}
 
@@ -287,30 +283,6 @@ class Image_Extension {
 		}
 
 		return $result;
-	}
-
-	/**
-	 * Check if a URL is invalid for sitemap inclusion.
-	 *
-	 * Filters out data URIs and malformed URLs. WordPress's kses filters
-	 * may convert data: URIs to http:// URLs, creating invalid entries.
-	 *
-	 * @param string $url URL to check.
-	 * @return bool True if URL should be skipped.
-	 */
-	private function is_invalid_image_url( string $url ): bool {
-		// Skip data URIs.
-		if ( str_starts_with( $url, 'data:' ) ) {
-			return true;
-		}
-
-		// Skip URLs that look like malformed data URIs (data: converted to http://).
-		// These have patterns like "http://image/png;base64,..." or "http://image/jpeg;...".
-		if ( preg_match( '#^https?://image/[^/]+;#i', $url ) ) {
-			return true;
-		}
-
-		return false;
 	}
 
 	/**

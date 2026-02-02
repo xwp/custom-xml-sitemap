@@ -31,7 +31,7 @@ class News_Extension {
 		$publication_name = $this->get_publication_name();
 		$language_code    = $this->get_language_code();
 		$publication_date = $this->get_publication_date( $post );
-		$title            = $this->get_title( $post );
+		$title            = get_the_title( $post );
 		$keywords         = $this->get_keywords( $post );
 
 		$xml  = "\t\t<news:news>\n";
@@ -70,29 +70,14 @@ class News_Extension {
 	}
 
 	/**
-	 * Get the language code in ISO 639 format.
+	 * Get the language code.
 	 *
-	 * Extracts 2-letter language code from WordPress locale.
-	 * Handles Chinese exception per Google spec.
+	 * Returns 'en' as the default language code.
 	 *
-	 * @return string ISO 639 language code (e.g., 'en', 'zh-cn', 'zh-tw').
+	 * @return string Language code.
 	 */
 	private function get_language_code(): string {
-		$locale = get_locale();
-
-		// Handle Chinese locales per Google spec.
-		if ( str_starts_with( $locale, 'zh_CN' ) || 'zh_Hans' === $locale ) {
-			return 'zh-cn';
-		}
-
-		if ( str_starts_with( $locale, 'zh_TW' ) || str_starts_with( $locale, 'zh_HK' ) || 'zh_Hant' === $locale ) {
-			return 'zh-tw';
-		}
-
-		// Extract 2-letter language code.
-		$parts = explode( '_', $locale );
-
-		return strtolower( $parts[0] );
+		return 'en';
 	}
 
 	/**
@@ -104,16 +89,6 @@ class News_Extension {
 	private function get_publication_date( WP_Post $post ): string {
 		$date = mysql2date( 'c', $post->post_date_gmt );
 		return false === $date ? gmdate( 'c' ) : $date;
-	}
-
-	/**
-	 * Get the post title.
-	 *
-	 * @param WP_Post $post Post object.
-	 * @return string Post title.
-	 */
-	private function get_title( WP_Post $post ): string {
-		return get_the_title( $post );
 	}
 
 	/**
