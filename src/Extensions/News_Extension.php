@@ -102,7 +102,8 @@ class News_Extension {
 	 * @return string ISO 8601 formatted date.
 	 */
 	private function get_publication_date( WP_Post $post ): string {
-		return mysql2date( 'c', $post->post_date_gmt );
+		$date = mysql2date( 'c', $post->post_date_gmt );
+		return false === $date ? gmdate( 'c' ) : $date;
 	}
 
 	/**
@@ -129,7 +130,7 @@ class News_Extension {
 
 		// Get categories (excluding "Uncategorized").
 		$categories = get_the_category( $post->ID );
-		if ( ! empty( $categories ) && ! is_wp_error( $categories ) ) {
+		if ( ! empty( $categories ) ) {
 			foreach ( $categories as $category ) {
 				// Skip "Uncategorized" category.
 				if ( 'uncategorized' === $category->slug ) {
@@ -141,7 +142,7 @@ class News_Extension {
 
 		// Get tags.
 		$tags = get_the_tags( $post->ID );
-		if ( ! empty( $tags ) && ! is_wp_error( $tags ) ) {
+		if ( ! empty( $tags ) && is_array( $tags ) ) {
 			foreach ( $tags as $tag ) {
 				$keywords[] = $tag->name;
 			}

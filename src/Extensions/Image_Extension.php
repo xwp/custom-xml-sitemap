@@ -5,14 +5,11 @@
  * Extracts images from posts and generates XML for the image sitemap extension.
  * Supports featured images, Gutenberg image blocks, and classic editor images.
  *
- * Uses WP_Block_Processor (WordPress 6.9+) for efficient streaming block parsing.
- *
  * @package XWP\CustomXmlSitemap\Extensions
  */
 
 namespace XWP\CustomXmlSitemap\Extensions;
 
-use WP_Block_Processor;
 use WP_Post;
 use XWP\CustomXmlSitemap\Sitemap_CPT;
 
@@ -154,22 +151,35 @@ class Image_Extension {
 	}
 
 	/**
-	 * Extract images using WP_Block_Processor streaming API.
+	 * Extract images from parsed blocks using parse_blocks().
 	 *
-	 * WP_Block_Processor (WordPress 6.9+) provides efficient streaming parsing
-	 * without allocating memory for the full block tree. It visits all blocks
-	 * including inner blocks in document order (pre-order traversal).
+	 * Uses WordPress core parse_blocks() function to extract block attributes
+	 * including image IDs for core/image blocks.
 	 *
 	 * @param string $content Post content HTML.
 	 * @param int    $post_id Post ID for filter context.
 	 * @return array<array{url: string}> Array of images with 'url' key.
 	 */
 	private function extract_images_with_block_processor( string $content, int $post_id ): array {
-		$images    = [];
-		$processor = new WP_Block_Processor( $content );
+		$images = [];
+		$blocks = parse_blocks( $content );
 
-		while ( $processor->next_block() ) {
-			$block_name = $processor->get_block_name();
+		$this->extract_images_from_blocks( $blocks, $images, $post_id );
+
+		return $images;
+	}
+
+	/**
+	 * Recursively extract images from blocks array.
+	 *
+	 * @param array<int|string, array<string, mixed>> $blocks  Array of parsed blocks.
+	 * @param array<array{url: string}>               $images  Images array to append to (passed by reference).
+	 * @param int                                     $post_id Post ID for filter context.
+	 * @return void
+	 */
+	private function extract_images_from_blocks( array $blocks, array &$images, int $post_id ): void {
+		foreach ( $blocks as $block ) {
+			$block_name = $block['blockName'] ?? null;
 
 			if ( null === $block_name ) {
 				continue;
@@ -177,15 +187,11 @@ class Image_Extension {
 
 			// Handle core/image blocks.
 			if ( 'core/image' === $block_name ) {
-				$image = $this->extract_image_from_processor( $processor );
+				$image = $this->extract_image_from_block( $block );
 				if ( ! empty( $image ) ) {
 					$images[] = $image;
 				}
-				continue;
 			}
-
-			// Allow themes/plugins to extract images from custom blocks.
-			$attrs = $processor->get_attribute( 'data-id' );
 
 			/**
 			 * Filter to extract images from custom blocks.
@@ -194,23 +200,26 @@ class Image_Extension {
 			 *
 			 * @param array<array{url: string}> $images     Current images array with 'url' keys.
 			 * @param string                    $block_name Block name (e.g., 'acme/gallery').
-			 * @param WP_Block_Processor        $processor  Block processor at current position.
+			 * @param array                     $block      Parsed block array.
 			 * @param int                       $post_id    Post ID being processed.
 			 */
-			$images = apply_filters( 'cxs_extract_block_images', $images, $block_name, $processor, $post_id );
-		}
+			$images = apply_filters( 'cxs_extract_block_images', $images, $block_name, $block, $post_id );
 
-		return $images;
+			// Process inner blocks recursively.
+			if ( ! empty( $block['innerBlocks'] ) ) {
+				$this->extract_images_from_blocks( $block['innerBlocks'], $images, $post_id );
+			}
+		}
 	}
 
 	/**
-	 * Extract image URL from current block processor position.
+	 * Extract image URL from a parsed block.
 	 *
-	 * @param WP_Block_Processor $processor Block processor at a core/image block.
+	 * @param array<string, mixed> $block Parsed block array.
 	 * @return array{url: string}|array{} Image data with 'url' key, or empty array.
 	 */
-	private function extract_image_from_processor( WP_Block_Processor $processor ): array {
-		$attrs = $processor->get_parsed_block()['attrs'] ?? [];
+	private function extract_image_from_block( array $block ): array {
+		$attrs = $block['attrs'] ?? [];
 
 		if ( empty( $attrs['id'] ) ) {
 			return [];
