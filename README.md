@@ -14,6 +14,64 @@ Key features:
 - **Hierarchical Structure** - Index sitemap links to year sitemaps, which link to month/day sitemaps
 - **Auto-Regeneration** - Automatic updates via Action Scheduler when content changes
 - **robots.txt Integration** - Automatically adds sitemap references
+- **Image Sitemap Support** - Include images in sitemap entries for Google Image Search
+- **News Sitemap Support** - Add Google News publication metadata for news sitemaps
+
+## Image and News Sitemaps
+
+### Image Sitemaps
+
+Enable image metadata in your sitemaps to help Google discover images on your pages. Three modes are available:
+
+| Mode | Description |
+|------|-------------|
+| **None** | No images included (default) |
+| **Featured Image Only** | Include only the post's featured image |
+| **All Images** | Include featured image + images from post content |
+
+When enabled, the sitemap includes `<image:image>` elements with `<image:loc>` for each image URL:
+
+```xml
+<url>
+  <loc>https://example.com/post/</loc>
+  <lastmod>2024-01-15T10:30:00+00:00</lastmod>
+  <image:image>
+    <image:loc>https://example.com/wp-content/uploads/photo.jpg</image:loc>
+  </image:image>
+</url>
+```
+
+Image extraction supports:
+- Featured images
+- Gutenberg `core/image` blocks
+- Classic editor inline `<img>` tags
+- Custom blocks via the `cxs_extract_block_images` filter
+
+### News Sitemaps
+
+Enable news metadata for Google News sitemaps. When enabled, each URL entry includes publication details:
+
+```xml
+<url>
+  <loc>https://example.com/breaking-news/</loc>
+  <news:news>
+    <news:publication>
+      <news:name>Example Times</news:name>
+      <news:language>en</news:language>
+    </news:publication>
+    <news:publication_date>2024-01-15T10:30:00+00:00</news:publication_date>
+    <news:title>Breaking News Story</news:title>
+    <news:keywords>Technology, Innovation</news:keywords>
+  </news:news>
+</url>
+```
+
+News metadata includes:
+- **Publication name** - From site name (trailing parentheticals stripped per Google spec)
+- **Language code** - ISO 639 format from WordPress locale
+- **Publication date** - ISO 8601 format from post date
+- **Title** - Post title
+- **Keywords** - Categories and tags (excluding "Uncategorized")
 
 ## Requirements
 
@@ -130,6 +188,25 @@ Triggered after a sitemap is regenerated.
 add_action( 'cxs_sitemap_generated', function( $sitemap_id, $stats ) {
     // Custom logic after sitemap generation
 }, 10, 2 );
+```
+
+### `cxs_extract_block_images`
+Extract images from custom Gutenberg blocks for image sitemaps.
+
+```php
+add_filter( 'cxs_extract_block_images', function( $images, $block_name, $block, $post_id ) {
+    if ( 'acme/gallery' === $block_name ) {
+        // Extract images from custom gallery block
+        $gallery_ids = $block['attrs']['imageIds'] ?? [];
+        foreach ( $gallery_ids as $id ) {
+            $url = wp_get_attachment_image_url( $id, 'full' );
+            if ( $url ) {
+                $images[] = [ 'url' => $url ];
+            }
+        }
+    }
+    return $images;
+}, 10, 4 );
 ```
 
 ## Local Development & Testing
