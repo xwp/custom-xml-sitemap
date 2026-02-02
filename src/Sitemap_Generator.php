@@ -13,6 +13,8 @@ namespace XWP\CustomXmlSitemap;
 
 use WP_Post;
 use WP_Query;
+use XWP\CustomXmlSitemap\Extensions\Image_Extension;
+use XWP\CustomXmlSitemap\Extensions\News_Extension;
 
 /**
  * Sitemap Generator.
@@ -55,6 +57,20 @@ class Sitemap_Generator {
 	public const META_KEY_INDEX_XML = 'cxs_sitemap_index_xml';
 
 	/**
+	 * XML namespace for image sitemap extension.
+	 *
+	 * @var string
+	 */
+	public const XMLNS_IMAGE = 'http://www.google.com/schemas/sitemap-image/1.1';
+
+	/**
+	 * XML namespace for news sitemap extension.
+	 *
+	 * @var string
+	 */
+	public const XMLNS_NEWS = 'http://www.google.com/schemas/sitemap-news/0.9';
+
+	/**
 	 * Sitemap post object.
 	 *
 	 * @var WP_Post
@@ -64,9 +80,23 @@ class Sitemap_Generator {
 	/**
 	 * Sitemap configuration.
 	 *
-	 * @var array{post_type: string, granularity: string, taxonomy: string, terms: array<int>}
+	 * @var array{post_type: string, granularity: string, taxonomy: string, terms: array<int>, include_images: string, include_news: bool}
 	 */
 	private array $config;
+
+	/**
+	 * Image extension instance.
+	 *
+	 * @var Image_Extension|null
+	 */
+	private ?Image_Extension $image_extension = null;
+
+	/**
+	 * News extension instance.
+	 *
+	 * @var News_Extension|null
+	 */
+	private ?News_Extension $news_extension = null;
 
 	/**
 	 * Constructor.
@@ -76,6 +106,24 @@ class Sitemap_Generator {
 	public function __construct( WP_Post $sitemap_post ) {
 		$this->sitemap_post = $sitemap_post;
 		$this->config       = Sitemap_CPT::get_sitemap_config( $sitemap_post->ID );
+		$this->initialize_extensions();
+	}
+
+	/**
+	 * Initialize sitemap extensions based on configuration.
+	 *
+	 * @return void
+	 */
+	private function initialize_extensions(): void {
+		$include_images = $this->config['include_images'] ?? Sitemap_CPT::INCLUDE_IMAGES_NONE;
+
+		if ( Sitemap_CPT::INCLUDE_IMAGES_NONE !== $include_images ) {
+			$this->image_extension = new Image_Extension( $include_images );
+		}
+
+		if ( ! empty( $this->config['include_news'] ) ) {
+			$this->news_extension = new News_Extension();
+		}
 	}
 
 	/**
@@ -956,15 +1004,36 @@ class Sitemap_Generator {
 	 * Get urlset XML header.
 	 *
 	 * Includes XSL stylesheet reference for browser display.
+	 * Dynamically includes image and news namespaces when extensions are enabled.
 	 *
 	 * @return string XML header.
 	 */
 	private function get_urlset_header(): string {
-		$xsl_url = home_url( '/cxs-sitemap.xsl' );
+		$xsl_url    = home_url( '/cxs-sitemap.xsl' );
+		$namespaces = $this->build_namespace_attributes();
 
 		return '<?xml version="1.0" encoding="UTF-8"?>' . "\n" .
 			'<?xml-stylesheet type="text/xsl" href="' . esc_url( $xsl_url ) . '"?>' . "\n" .
-			'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+			'<urlset ' . $namespaces . '>' . "\n";
+	}
+
+	/**
+	 * Build XML namespace attributes for urlset element.
+	 *
+	 * @return string Space-separated namespace attribute declarations.
+	 */
+	private function build_namespace_attributes(): string {
+		$namespaces = [ 'xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"' ];
+
+		if ( null !== $this->image_extension ) {
+			$namespaces[] = 'xmlns:image="' . self::XMLNS_IMAGE . '"';
+		}
+
+		if ( null !== $this->news_extension ) {
+			$namespaces[] = 'xmlns:news="' . self::XMLNS_NEWS . '"';
+		}
+
+		return implode( ' ', $namespaces );
 	}
 
 	/**
@@ -1017,6 +1086,8 @@ class Sitemap_Generator {
 	/**
 	 * Build URL entry for urlset.
 	 *
+	 * Includes image and news extension elements when enabled.
+	 *
 	 * @param WP_Post $post Post object.
 	 * @return string XML entry.
 	 */
@@ -1033,8 +1104,38 @@ class Sitemap_Generator {
 		$xml  = "\t<url>\n";
 		$xml .= "\t\t<loc>" . esc_url( $url ) . "</loc>\n";
 		$xml .= "\t\t<lastmod>" . esc_html( $last_modified ) . "</lastmod>\n";
+		$xml .= $this->build_image_extension_xml( $post );
+		$xml .= $this->build_news_extension_xml( $post );
 		$xml .= "\t</url>\n";
 
 		return $xml;
+	}
+
+	/**
+	 * Build image extension XML for a post.
+	 *
+	 * @param WP_Post $post Post object.
+	 * @return string XML string with image:image elements, or empty string.
+	 */
+	private function build_image_extension_xml( WP_Post $post ): string {
+		if ( null === $this->image_extension ) {
+			return '';
+		}
+
+		return $this->image_extension->build_xml( $post );
+	}
+
+	/**
+	 * Build news extension XML for a post.
+	 *
+	 * @param WP_Post $post Post object.
+	 * @return string XML string with news:news element, or empty string.
+	 */
+	private function build_news_extension_xml( WP_Post $post ): string {
+		if ( null === $this->news_extension ) {
+			return '';
+		}
+
+		return $this->news_extension->build_xml( $post );
 	}
 }
