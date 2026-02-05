@@ -73,6 +73,71 @@ News metadata includes:
 - **Title** - Post title
 - **Keywords** - Categories and tags (excluding "Uncategorized")
 
+## Terms Mode (Taxonomy Archive Sitemaps)
+
+In addition to post-based sitemaps, the plugin supports **Terms Mode** which generates sitemaps listing taxonomy term archive URLs (e.g., `/topics/gaming/`, `/category/tech/`) instead of individual post URLs.
+
+### When to Use Terms Mode
+
+Terms mode is useful when you want search engines to index your taxonomy archive pages:
+- Topic/category landing pages
+- Tag archives with curated content
+- Custom taxonomy term pages
+
+### Configuration
+
+1. Create a new sitemap under **Custom Sitemaps**
+2. Set **Sitemap Mode** to "Terms"
+3. Select the **Taxonomy** to include (required)
+4. Optionally enable **Hide Empty Terms** to exclude terms with no posts
+
+### URL Structure
+
+Terms mode sitemaps use a paginated structure:
+
+| URL Pattern | Description |
+|-------------|-------------|
+| `/sitemaps/{slug}/index.xml` | Index sitemap (for >1000 terms) or direct URL list |
+| `/sitemaps/{slug}/page-1.xml` | First page of term URLs (1000 terms max per page) |
+| `/sitemaps/{slug}/page-2.xml` | Second page, etc. |
+
+For taxonomies with 1000 or fewer terms, the index.xml contains all term URLs directly. For larger taxonomies, the index.xml becomes a sitemap index linking to paginated sitemaps.
+
+### Example Output
+
+**Index sitemap (small taxonomy):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://example.com/topics/gaming/</loc>
+  </url>
+  <url>
+    <loc>https://example.com/topics/technology/</loc>
+  </url>
+</urlset>
+```
+
+**Index sitemap (large taxonomy with pagination):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://example.com/sitemaps/topics/page-1.xml</loc>
+  </sitemap>
+  <sitemap>
+    <loc>https://example.com/sitemaps/topics/page-2.xml</loc>
+  </sitemap>
+</sitemapindex>
+```
+
+### Behavioral Notes
+
+- Terms mode sitemaps do **not** include `<lastmod>` elements (term archives have no inherent modification date)
+- Terms are ordered alphabetically by name
+- Automatic regeneration is triggered when terms are created, edited, or deleted (with 5-minute debounce)
+- Image and News options are not applicable in Terms mode
+
 ## Requirements
 
 - PHP 8.4+
@@ -128,13 +193,20 @@ Navigate to **Custom Sitemaps** in the admin menu to create your first sitemap.
 
 ## Sitemap URLs
 
-Once a sitemap is published, it's accessible at:
+Once a sitemap is published, it's accessible at the following URLs.
 
+**Posts Mode (default):**
 ```
 /sitemaps/{slug}/index.xml              # Main index
 /sitemaps/{slug}/{year}.xml             # Year index
 /sitemaps/{slug}/{year}/{month}.xml     # Month sitemap (monthly granularity)
 /sitemaps/{slug}/{year}/{month}/{day}.xml  # Day sitemap (daily granularity)
+```
+
+**Terms Mode:**
+```
+/sitemaps/{slug}/index.xml              # Index or direct URL list
+/sitemaps/{slug}/page-{n}.xml           # Paginated term URLs (for large taxonomies)
 ```
 
 ## WP-CLI Commands
@@ -143,6 +215,8 @@ Once a sitemap is published, it's accessible at:
 ```bash
 wp cxs list [--format=<table|json|csv>]
 ```
+
+Displays all configured sitemaps with columns: ID, Slug, Post Type, Taxonomy, **Mode**, Status, and URL Count.
 
 ### Generate Sitemaps
 ```bash

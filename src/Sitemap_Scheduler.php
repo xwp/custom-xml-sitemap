@@ -51,6 +51,15 @@ class Sitemap_Scheduler {
 	public const CRON_INTERVAL_SECONDS = 15 * MINUTE_IN_SECONDS;
 
 	/**
+	 * Debounce delay for terms sitemap regeneration (5 minutes).
+	 *
+	 * Allows multiple rapid term changes to be batched into a single regeneration.
+	 *
+	 * @var int
+	 */
+	public const TERMS_DEBOUNCE_DELAY = 5 * MINUTE_IN_SECONDS;
+
+	/**
 	 * Option name for storing the last modified check timestamp.
 	 *
 	 * @var string
@@ -81,8 +90,13 @@ class Sitemap_Scheduler {
 		// Immediate trigger: unpublish (publish → non-publish) schedules AS job.
 		add_action( 'transition_post_status', [ $this, 'handle_post_unpublish' ], 10, 3 );
 
-		// Immediate trigger: term deletion schedules AS job for affected sitemaps.
+		// Immediate trigger: term deletion schedules AS job for affected sitemaps (Posts mode).
 		add_action( 'pre_delete_term', [ $this, 'handle_term_deletion' ], 10, 2 );
+
+		// Term changes: invalidate terms-mode sitemaps when taxonomy terms are created/edited/deleted.
+		add_action( 'created_term', [ $this, 'handle_term_change_for_terms_sitemap' ], 10, 3 );
+		add_action( 'edited_term', [ $this, 'handle_term_change_for_terms_sitemap' ], 10, 3 );
+		add_action( 'delete_term', [ $this, 'handle_term_deletion_for_terms_sitemap' ], 10, 4 );
 
 		// Action Scheduler callback for single-date sitemap regeneration.
 		add_action( self::AS_HOOK_REGENERATE_SITEMAP, [ $this, 'handle_sitemap_regeneration' ], 10, 4 );
@@ -353,6 +367,85 @@ class Sitemap_Scheduler {
 	}
 
 	/**
+	 * Handle term create/edit for terms-mode sitemaps.
+	 *
+	 * When a term is created or edited (name/slug change), terms-mode sitemaps
+	 * using that taxonomy need to be regenerated to reflect the new/updated term URL.
+	 *
+	 * Hook: created_term, edited_term
+	 *
+	 * @param int    $term_id  Term ID.
+	 * @param int    $tt_id    Term taxonomy ID.
+	 * @param string $taxonomy Taxonomy slug.
+	 * @return void
+	 */
+	public function handle_term_change_for_terms_sitemap( int $term_id, int $tt_id, string $taxonomy ): void {
+		// Skip during imports to avoid scheduling excessive jobs.
+		if ( defined( 'WP_IMPORTING' ) && WP_IMPORTING ) {
+			return;
+		}
+
+		$this->invalidate_terms_sitemaps_for_taxonomy( $taxonomy );
+	}
+
+	/**
+	 * Handle term deletion for terms-mode sitemaps.
+	 *
+	 * When a term is deleted, terms-mode sitemaps using that taxonomy need to be
+	 * regenerated to remove the deleted term URL.
+	 *
+	 * Hook: delete_term
+	 *
+	 * @param int    $term_id      Term ID.
+	 * @param int    $tt_id        Term taxonomy ID.
+	 * @param string $taxonomy     Taxonomy slug.
+	 * @param mixed  $deleted_term Deleted term object (WP_Term or WP_Error).
+	 * @return void
+	 */
+	public function handle_term_deletion_for_terms_sitemap( int $term_id, int $tt_id, string $taxonomy, $deleted_term ): void {
+		// Skip during imports to avoid scheduling excessive jobs.
+		if ( defined( 'WP_IMPORTING' ) && WP_IMPORTING ) {
+			return;
+		}
+
+		$this->invalidate_terms_sitemaps_for_taxonomy( $taxonomy );
+	}
+
+	/**
+	 * Invalidate all terms-mode sitemaps that use a specific taxonomy.
+	 *
+	 * Schedules debounced regeneration via Action Scheduler (5-minute delay) for all
+	 * terms-mode sitemaps that match the given taxonomy. The delay allows multiple
+	 * rapid term changes to be batched into a single regeneration.
+	 *
+	 * @param string $taxonomy Taxonomy slug.
+	 * @return void
+	 */
+	private function invalidate_terms_sitemaps_for_taxonomy( string $taxonomy ): void {
+		$all_configs = Sitemap_CPT::get_all_sitemap_configs();
+
+		foreach ( $all_configs as $config_data ) {
+			$config = $config_data['config'];
+
+			// Only process terms-mode sitemaps.
+			if ( Sitemap_CPT::SITEMAP_MODE_TERMS !== $config['mode'] ) {
+				continue;
+			}
+
+			// Only process sitemaps using this taxonomy.
+			if ( empty( $config['taxonomy'] ) || $config['taxonomy'] !== $taxonomy ) {
+				continue;
+			}
+
+			// Schedule debounced regeneration (5-minute delay) via Action Scheduler.
+			$this->schedule_debounced_regeneration(
+				self::AS_HOOK_REGENERATE_SITEMAP_ALL,
+				[ 'sitemap_id' => $config_data['post']->ID ]
+			);
+		}
+	}
+
+	/**
 	 * Schedule an async Action Scheduler job for sitemap regeneration.
 	 *
 	 * Prevents duplicate scheduling for the same hook/args combination.
@@ -371,6 +464,30 @@ class Sitemap_Scheduler {
 		}
 
 		as_enqueue_async_action( $hook, $args, self::AS_GROUP );
+	}
+
+	/**
+	 * Schedule a debounced Action Scheduler job for sitemap regeneration.
+	 *
+	 * Schedules the job to run after a delay. If the same job is already scheduled,
+	 * it won't be duplicated. This allows multiple rapid changes (e.g., bulk term
+	 * operations) to be batched into a single regeneration.
+	 *
+	 * @param string              $hook  Action Scheduler hook name.
+	 * @param array<string, mixed> $args  Arguments to pass to the hook.
+	 * @param int                 $delay Delay in seconds before running (default: TERMS_DEBOUNCE_DELAY).
+	 * @return void
+	 */
+	private function schedule_debounced_regeneration( string $hook, array $args, int $delay = self::TERMS_DEBOUNCE_DELAY ): void {
+		if ( ! function_exists( 'as_schedule_single_action' ) ) {
+			return;
+		}
+
+		if ( as_has_scheduled_action( $hook, $args, self::AS_GROUP ) ) {
+			return;
+		}
+
+		as_schedule_single_action( time() + $delay, $hook, $args, self::AS_GROUP );
 	}
 
 	/**
@@ -415,6 +532,8 @@ class Sitemap_Scheduler {
 	/**
 	 * Handle async full sitemap regeneration callback.
 	 *
+	 * Uses appropriate generator based on sitemap mode (Posts or Terms).
+	 *
 	 * @param int $sitemap_id Sitemap post ID.
 	 * @return void
 	 */
@@ -424,7 +543,12 @@ class Sitemap_Scheduler {
 			return;
 		}
 
-		$generator = new Sitemap_Generator( $sitemap );
+		// Use appropriate generator based on sitemap mode.
+		if ( Sitemap_CPT::is_terms_mode( $sitemap_id ) ) {
+			$generator = new Terms_Sitemap_Generator( $sitemap );
+		} else {
+			$generator = new Sitemap_Generator( $sitemap );
+		}
 		$generator->regenerate_all();
 	}
 
@@ -455,7 +579,12 @@ class Sitemap_Scheduler {
 		Sitemap_CPT::clear_sitemap_configs_cache();
 
 		// Clear XML cache so it regenerates on next request.
-		$generator = new Sitemap_Generator( $post );
+		// Use appropriate generator based on sitemap mode.
+		if ( Sitemap_CPT::is_terms_mode( $post->ID ) ) {
+			$generator = new Terms_Sitemap_Generator( $post );
+		} else {
+			$generator = new Sitemap_Generator( $post );
+		}
 		$generator->clear_all_cached_xml();
 	}
 }

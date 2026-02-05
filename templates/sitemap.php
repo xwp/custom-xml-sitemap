@@ -2,8 +2,10 @@
 /**
  * Custom Sitemap Template.
  *
- * Outputs XML sitemap content for custom taxonomy-based sitemaps.
- * Handles index, year, month, and day sitemap generation based on granularity.
+ * Outputs XML sitemap content for custom sitemaps.
+ * Supports two modes:
+ * - Posts mode: Hierarchical sitemaps with year/month/day URLs based on granularity
+ * - Terms mode: Term archive URL sitemaps with pagination support
  *
  * @package XWP\CustomXmlSitemap
  */
@@ -20,6 +22,7 @@ $sitemap_type  = get_query_var( Sitemap_Router::QUERY_VAR_SITEMAP );
 $sitemap_year  = get_query_var( Sitemap_Router::QUERY_VAR_YEAR );
 $sitemap_month = get_query_var( Sitemap_Router::QUERY_VAR_MONTH );
 $sitemap_day   = get_query_var( Sitemap_Router::QUERY_VAR_DAY );
+$sitemap_page  = get_query_var( Sitemap_Router::QUERY_VAR_PAGE );
 
 // Validate sitemap type.
 if ( empty( $sitemap_type ) ) {
@@ -37,24 +40,40 @@ if ( ! $sitemap_post ) {
 	exit;
 }
 
-// Create generator instance.
-$generator = new Sitemap_Generator( $sitemap_post );
+// Determine sitemap mode and create appropriate generator.
+$is_terms_mode = Sitemap_CPT::is_terms_mode( $sitemap_post->ID );
 
-// Get sitemap XML (from cache or generate).
-// XML is cached in post meta for fast retrieval.
-// The generator handles granularity logic internally.
-if ( ! empty( $sitemap_day ) && ! empty( $sitemap_month ) && ! empty( $sitemap_year ) ) {
-	// Day sitemap: /sitemaps/{type}/{year}-{month}-{day}.xml.
-	$xml = $generator->get_day_sitemap( (int) $sitemap_year, (int) $sitemap_month, (int) $sitemap_day );
-} elseif ( ! empty( $sitemap_month ) && ! empty( $sitemap_year ) ) {
-	// Month sitemap: /sitemaps/{type}/{year}-{month}.xml.
-	$xml = $generator->get_month_sitemap( (int) $sitemap_year, (int) $sitemap_month );
-} elseif ( ! empty( $sitemap_year ) ) {
-	// Year sitemap: /sitemaps/{type}/{year}.xml.
-	$xml = $generator->get_year_sitemap( (int) $sitemap_year );
+if ( $is_terms_mode ) {
+	// Terms mode: Use Terms_Sitemap_Generator.
+	$generator = new Terms_Sitemap_Generator( $sitemap_post );
+
+	if ( ! empty( $sitemap_page ) ) {
+		// Page sitemap: /sitemaps/{type}/page-{n}.xml.
+		$xml = $generator->get_page( (int) $sitemap_page );
+	} else {
+		// Index sitemap: /sitemaps/{type}/index.xml.
+		$xml = $generator->get_index();
+	}
 } else {
-	// Index sitemap: /sitemaps/{type}/index.xml.
-	$xml = $generator->get_index();
+	// Posts mode: Use Sitemap_Generator with date-based hierarchy.
+	$generator = new Sitemap_Generator( $sitemap_post );
+
+	// Get sitemap XML (from cache or generate).
+	// XML is cached in post meta for fast retrieval.
+	// The generator handles granularity logic internally.
+	if ( ! empty( $sitemap_day ) && ! empty( $sitemap_month ) && ! empty( $sitemap_year ) ) {
+		// Day sitemap: /sitemaps/{type}/{year}-{month}-{day}.xml.
+		$xml = $generator->get_day_sitemap( (int) $sitemap_year, (int) $sitemap_month, (int) $sitemap_day );
+	} elseif ( ! empty( $sitemap_month ) && ! empty( $sitemap_year ) ) {
+		// Month sitemap: /sitemaps/{type}/{year}-{month}.xml.
+		$xml = $generator->get_month_sitemap( (int) $sitemap_year, (int) $sitemap_month );
+	} elseif ( ! empty( $sitemap_year ) ) {
+		// Year sitemap: /sitemaps/{type}/{year}.xml.
+		$xml = $generator->get_year_sitemap( (int) $sitemap_year );
+	} else {
+		// Index sitemap: /sitemaps/{type}/index.xml.
+		$xml = $generator->get_index();
+	}
 }
 
 // Set XML headers.

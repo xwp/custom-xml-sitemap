@@ -41,15 +41,25 @@ function debounce( func, wait ) {
  * Settings Panel Component.
  *
  * Main component for the sitemap configuration interface.
+ * Supports two modes:
+ * - Posts mode: Lists post URLs organized by date granularity
+ * - Terms mode: Lists taxonomy term archive URLs
  *
  * @return {JSX.Element} The settings panel component.
  */
 function SettingsPanel() {
 	// Get settings from localized script data.
-	const { postTypes, taxonomies, savedValues, granularities, imageOptions } =
-		window.cxsSettings || {};
+	const {
+		postTypes,
+		taxonomies,
+		savedValues,
+		granularities,
+		imageOptions,
+		modeOptions,
+	} = window.cxsSettings || {};
 
 	// State for form values.
+	const [ mode, setMode ] = useState( savedValues?.mode || 'posts' );
 	const [ postType, setPostType ] = useState(
 		savedValues?.postType || 'post'
 	);
@@ -66,6 +76,12 @@ function SettingsPanel() {
 	const [ includeNews, setIncludeNews ] = useState(
 		savedValues?.includeNews || false
 	);
+	const [ termsHideEmpty, setTermsHideEmpty ] = useState(
+		savedValues?.termsHideEmpty ?? true
+	);
+
+	// Derived state: Check if we're in terms mode.
+	const isTermsMode = mode === 'terms';
 
 	// Convert post types object to options array.
 	const postTypeOptions = Object.entries( postTypes || {} ).map(
@@ -185,8 +201,11 @@ function SettingsPanel() {
 
 	/**
 	 * Update hidden input fields when state changes.
+	 *
+	 * Syncs React state to hidden form inputs for server-side processing.
 	 */
 	useEffect( () => {
+		const modeInput = document.getElementById( 'cxs-sitemap-mode' );
 		const postTypeInput = document.getElementById( 'cxs-post-type' );
 		const granularityInput = document.getElementById( 'cxs-granularity' );
 		const taxonomyInput = document.getElementById( 'cxs-taxonomy' );
@@ -194,7 +213,13 @@ function SettingsPanel() {
 		const includeImagesInput =
 			document.getElementById( 'cxs-include-images' );
 		const includeNewsInput = document.getElementById( 'cxs-include-news' );
+		const termsHideEmptyInput = document.getElementById(
+			'cxs-terms-hide-empty'
+		);
 
+		if ( modeInput ) {
+			modeInput.value = mode;
+		}
 		if ( postTypeInput ) {
 			postTypeInput.value = postType;
 		}
@@ -215,13 +240,18 @@ function SettingsPanel() {
 		if ( includeNewsInput ) {
 			includeNewsInput.value = includeNews ? '1' : '';
 		}
+		if ( termsHideEmptyInput ) {
+			termsHideEmptyInput.value = termsHideEmpty ? '1' : '0';
+		}
 	}, [
+		mode,
 		postType,
 		granularity,
 		taxonomy,
 		selectedTerms,
 		includeImages,
 		includeNews,
+		termsHideEmpty,
 	] );
 
 	/**
@@ -281,39 +311,69 @@ function SettingsPanel() {
 		<div className="cxs-settings-panel">
 			<PanelBody opened>
 				<SelectControl
-					label={ __( 'Post Type', 'custom-xml-sitemap' ) }
-					value={ postType }
-					options={ postTypeOptions }
-					onChange={ setPostType }
+					label={ __( 'Sitemap Mode', 'custom-xml-sitemap' ) }
+					value={ mode }
+					options={ modeOptions || [] }
+					onChange={ setMode }
 					help={ __(
-						'Select the post type to include in this sitemap.',
+						'Choose whether to list post URLs or taxonomy term archive URLs.',
 						'custom-xml-sitemap'
 					) }
 				/>
 
-				<SelectControl
-					label={ __( 'Granularity', 'custom-xml-sitemap' ) }
-					value={ granularity }
-					options={ granularities }
-					onChange={ setGranularity }
-					help={ __(
-						'Choose the date-based hierarchy level for sitemap files.',
-						'custom-xml-sitemap'
-					) }
-				/>
+				{ ! isTermsMode && (
+					<>
+						<SelectControl
+							label={ __( 'Post Type', 'custom-xml-sitemap' ) }
+							value={ postType }
+							options={ postTypeOptions }
+							onChange={ setPostType }
+							help={ __(
+								'Select the post type to include in this sitemap.',
+								'custom-xml-sitemap'
+							) }
+						/>
+
+						<SelectControl
+							label={ __( 'Granularity', 'custom-xml-sitemap' ) }
+							value={ granularity }
+							options={ granularities }
+							onChange={ setGranularity }
+							help={ __(
+								'Choose the date-based hierarchy level for sitemap files.',
+								'custom-xml-sitemap'
+							) }
+						/>
+					</>
+				) }
 
 				<SelectControl
-					label={ __( 'Taxonomy Filter', 'custom-xml-sitemap' ) }
+					label={
+						isTermsMode
+							? __( 'Taxonomy', 'custom-xml-sitemap' )
+							: __( 'Taxonomy Filter', 'custom-xml-sitemap' )
+					}
 					value={ taxonomy }
-					options={ taxonomyOptions }
+					options={
+						isTermsMode
+							? taxonomyOptions.filter( ( opt ) => opt.value )
+							: taxonomyOptions
+					}
 					onChange={ handleTaxonomyChange }
-					help={ __(
-						'Optionally filter posts by a specific taxonomy.',
-						'custom-xml-sitemap'
-					) }
+					help={
+						isTermsMode
+							? __(
+									'Select the taxonomy whose term archives will be listed.',
+									'custom-xml-sitemap'
+							  )
+							: __(
+									'Optionally filter posts by a specific taxonomy.',
+									'custom-xml-sitemap'
+							  )
+					}
 				/>
 
-				{ taxonomy && (
+				{ ! isTermsMode && taxonomy && (
 					<div className="cxs-terms-field">
 						<FormTokenField
 							label={ __(
@@ -345,29 +405,48 @@ function SettingsPanel() {
 					</div>
 				) }
 
-				<SelectControl
-					label={ __( 'Include Images', 'custom-xml-sitemap' ) }
-					value={ includeImages }
-					options={ imageOptions || [] }
-					onChange={ setIncludeImages }
-					help={ __(
-						'Add image metadata to sitemap entries for Google Image Search.',
-						'custom-xml-sitemap'
-					) }
-				/>
+				{ isTermsMode && (
+					<CheckboxControl
+						label={ __( 'Hide Empty Terms', 'custom-xml-sitemap' ) }
+						checked={ termsHideEmpty }
+						onChange={ setTermsHideEmpty }
+						help={ __(
+							'When enabled, terms with no published posts will be excluded from the sitemap.',
+							'custom-xml-sitemap'
+						) }
+					/>
+				) }
 
-				<CheckboxControl
-					label={ __(
-						'Include News Metadata',
-						'custom-xml-sitemap'
-					) }
-					checked={ includeNews }
-					onChange={ setIncludeNews }
-					help={ __(
-						'Add news publication metadata for Google News sitemaps.',
-						'custom-xml-sitemap'
-					) }
-				/>
+				{ ! isTermsMode && (
+					<>
+						<SelectControl
+							label={ __(
+								'Include Images',
+								'custom-xml-sitemap'
+							) }
+							value={ includeImages }
+							options={ imageOptions || [] }
+							onChange={ setIncludeImages }
+							help={ __(
+								'Add image metadata to sitemap entries for Google Image Search.',
+								'custom-xml-sitemap'
+							) }
+						/>
+
+						<CheckboxControl
+							label={ __(
+								'Include News Metadata',
+								'custom-xml-sitemap'
+							) }
+							checked={ includeNews }
+							onChange={ setIncludeNews }
+							help={ __(
+								'Add news publication metadata for Google News sitemaps.',
+								'custom-xml-sitemap'
+							) }
+						/>
+					</>
+				) }
 			</PanelBody>
 		</div>
 	);

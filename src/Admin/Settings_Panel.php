@@ -106,6 +106,10 @@ class Settings_Panel {
 			id="cxs-include-images" value="<?php echo esc_attr( $config['include_images'] ); ?>" />
 		<input type="hidden" name="<?php echo esc_attr( Sitemap_CPT::META_KEY_INCLUDE_NEWS ); ?>" 
 			id="cxs-include-news" value="<?php echo esc_attr( $config['include_news'] ? '1' : '' ); ?>" />
+		<input type="hidden" name="<?php echo esc_attr( Sitemap_CPT::META_KEY_SITEMAP_MODE ); ?>" 
+			id="cxs-sitemap-mode" value="<?php echo esc_attr( $config['mode'] ); ?>" />
+		<input type="hidden" name="<?php echo esc_attr( Sitemap_CPT::META_KEY_TERMS_HIDE_EMPTY ); ?>" 
+			id="cxs-terms-hide-empty" value="<?php echo esc_attr( $config['terms_hide_empty'] ? '1' : '0' ); ?>" />
 		<?php
 	}
 
@@ -156,12 +160,14 @@ class Settings_Panel {
 		// Get current post for saved values.
 		global $post;
 		$config = $post ? Sitemap_CPT::get_sitemap_config( $post->ID ) : [
-			'post_type'      => 'post',
-			'granularity'    => Sitemap_CPT::GRANULARITY_MONTH,
-			'taxonomy'       => '',
-			'terms'          => [],
-			'include_images' => Sitemap_CPT::INCLUDE_IMAGES_NONE,
-			'include_news'   => false,
+			'mode'             => Sitemap_CPT::SITEMAP_MODE_POSTS,
+			'post_type'        => 'post',
+			'granularity'      => Sitemap_CPT::GRANULARITY_MONTH,
+			'taxonomy'         => '',
+			'terms'            => [],
+			'include_images'   => Sitemap_CPT::INCLUDE_IMAGES_NONE,
+			'include_news'     => false,
+			'terms_hide_empty' => true,
 		];
 
 		// Localize script with settings data.
@@ -172,12 +178,24 @@ class Settings_Panel {
 				'postTypes'    => $this->get_available_post_types(),
 				'taxonomies'   => $this->get_available_taxonomies(),
 				'savedValues'  => [
-					'postType'      => $config['post_type'],
-					'granularity'   => $config['granularity'],
-					'taxonomy'      => $config['taxonomy'],
-					'terms'         => $config['terms'],
-					'includeImages' => $config['include_images'],
-					'includeNews'   => $config['include_news'],
+					'mode'           => $config['mode'],
+					'postType'       => $config['post_type'],
+					'granularity'    => $config['granularity'],
+					'taxonomy'       => $config['taxonomy'],
+					'terms'          => $config['terms'],
+					'includeImages'  => $config['include_images'],
+					'includeNews'    => $config['include_news'],
+					'termsHideEmpty' => $config['terms_hide_empty'],
+				],
+				'modeOptions'   => [
+					[
+						'value' => Sitemap_CPT::SITEMAP_MODE_POSTS,
+						'label' => __( 'Posts (list post URLs by date)', 'custom-xml-sitemap' ),
+					],
+					[
+						'value' => Sitemap_CPT::SITEMAP_MODE_TERMS,
+						'label' => __( 'Taxonomy Terms (list term archive URLs)', 'custom-xml-sitemap' ),
+					],
 				],
 				'granularities' => [
 					[
@@ -370,6 +388,24 @@ class Settings_Panel {
 		// Save include news setting.
 		$include_news = isset( $_POST[ Sitemap_CPT::META_KEY_INCLUDE_NEWS ] ) && ! empty( $_POST[ Sitemap_CPT::META_KEY_INCLUDE_NEWS ] );
 		update_post_meta( $post_id, Sitemap_CPT::META_KEY_INCLUDE_NEWS, $include_news ? '1' : '' );
+
+		// Save sitemap mode setting.
+		if ( isset( $_POST[ Sitemap_CPT::META_KEY_SITEMAP_MODE ] ) ) {
+			$mode        = sanitize_key( wp_unslash( $_POST[ Sitemap_CPT::META_KEY_SITEMAP_MODE ] ) );
+			$valid_modes = [
+				Sitemap_CPT::SITEMAP_MODE_POSTS,
+				Sitemap_CPT::SITEMAP_MODE_TERMS,
+			];
+			if ( in_array( $mode, $valid_modes, true ) ) {
+				update_post_meta( $post_id, Sitemap_CPT::META_KEY_SITEMAP_MODE, $mode );
+			}
+		}
+
+		// Save terms hide empty setting (store as '1' or '0' string).
+		if ( isset( $_POST[ Sitemap_CPT::META_KEY_TERMS_HIDE_EMPTY ] ) ) {
+			$hide_empty = sanitize_text_field( wp_unslash( $_POST[ Sitemap_CPT::META_KEY_TERMS_HIDE_EMPTY ] ) );
+			update_post_meta( $post_id, Sitemap_CPT::META_KEY_TERMS_HIDE_EMPTY, '1' === $hide_empty ? '1' : '0' );
+		}
 	}
 
 	/**

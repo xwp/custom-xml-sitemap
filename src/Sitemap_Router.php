@@ -55,6 +55,15 @@ class Sitemap_Router {
 	public const QUERY_VAR_XSL = 'cxs-xsl';
 
 	/**
+	 * Query variable for terms sitemap page number.
+	 *
+	 * Used for paginated terms mode sitemaps (e.g., page-1.xml, page-2.xml).
+	 *
+	 * @var string
+	 */
+	public const QUERY_VAR_PAGE = 'sitemap-page';
+
+	/**
 	 * Initialize the router.
 	 *
 	 * Registers all WordPress hooks for routing sitemap requests.
@@ -82,11 +91,15 @@ class Sitemap_Router {
 	/**
 	 * Register rewrite rules for custom sitemap URLs.
 	 *
-	 * Creates URL structure with configurable granularity:
+	 * Creates URL structure with configurable granularity (Posts mode):
 	 * - /sitemaps/{type}/index.xml
 	 * - /sitemaps/{type}/{year}.xml
 	 * - /sitemaps/{type}/{year}-{month}.xml
 	 * - /sitemaps/{type}/{year}-{month}-{day}.xml (for day granularity)
+	 *
+	 * Terms mode URL structure (for paginated term sitemaps):
+	 * - /sitemaps/{type}/index.xml
+	 * - /sitemaps/{type}/page-{n}.xml (when > 1000 terms)
 	 *
 	 * Also registers rules for XSL stylesheets:
 	 * - /cxs-sitemap.xsl
@@ -136,6 +149,14 @@ class Sitemap_Router {
 			'index.php?' . self::QUERY_VAR_SITEMAP . '=$matches[1]&' . self::QUERY_VAR_YEAR . '=$matches[2]&' . self::QUERY_VAR_MONTH . '=$matches[3]&' . self::QUERY_VAR_DAY . '=$matches[4]',
 			'top'
 		);
+
+		// Paginated terms sitemap: /sitemaps/{type}/page-{n}.xml.
+		// Used by Terms mode sitemaps when taxonomy has > 1000 terms.
+		add_rewrite_rule(
+			'^sitemaps/([a-z0-9-]+)/page-([0-9]+)\.xml$',
+			'index.php?' . self::QUERY_VAR_SITEMAP . '=$matches[1]&' . self::QUERY_VAR_PAGE . '=$matches[2]',
+			'top'
+		);
 	}
 
 	/**
@@ -150,6 +171,7 @@ class Sitemap_Router {
 		$vars[] = self::QUERY_VAR_MONTH;
 		$vars[] = self::QUERY_VAR_DAY;
 		$vars[] = self::QUERY_VAR_XSL;
+		$vars[] = self::QUERY_VAR_PAGE;
 
 		return $vars;
 	}

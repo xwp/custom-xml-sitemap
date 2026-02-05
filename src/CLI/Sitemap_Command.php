@@ -16,6 +16,7 @@ use WP_Post;
 use WP_Query;
 use XWP\CustomXmlSitemap\Sitemap_CPT;
 use XWP\CustomXmlSitemap\Sitemap_Generator;
+use XWP\CustomXmlSitemap\Terms_Sitemap_Generator;
 
 /**
  * Sitemap CLI Command.
@@ -72,19 +73,21 @@ class Sitemap_Command extends WP_CLI_Command {
 		$items  = [];
 
 		foreach ( $sitemaps as $sitemap ) {
-			$config    = Sitemap_CPT::get_sitemap_config( $sitemap->ID );
-			$has_cache = $this->has_cached_xml( $sitemap->ID );
-			$url_count = $this->get_total_url_count( $sitemap->ID );
+			$config       = Sitemap_CPT::get_sitemap_config( $sitemap->ID );
+			$is_terms     = Sitemap_CPT::is_terms_mode( $sitemap->ID );
+			$has_cache    = $this->has_cached_xml( $sitemap->ID, $is_terms );
+			$url_or_terms = $this->get_total_url_count( $sitemap->ID, $is_terms );
 
 			$items[] = [
 				'ID'          => $sitemap->ID,
 				'Slug'        => $sitemap->post_name,
 				'Title'       => $sitemap->post_title,
-				'Post Type'   => $config['post_type'] ?? 'post',
+				'Mode'        => $is_terms ? 'Terms' : 'Posts',
+				'Post Type'   => $is_terms ? '-' : ( $config['post_type'] ?? 'post' ),
 				'Taxonomy'    => $config['taxonomy'] ?? '-',
-				'Granularity' => $config['granularity'] ?? 'month',
+				'Granularity' => $is_terms ? '-' : ( $config['granularity'] ?? 'month' ),
 				'Cached'      => $has_cache ? 'Yes' : 'No',
-				'URLs'        => $url_count,
+				'URLs'        => $url_or_terms,
 			];
 		}
 
@@ -387,11 +390,15 @@ class Sitemap_Command extends WP_CLI_Command {
 	/**
 	 * Check if a sitemap has cached XML.
 	 *
-	 * @param int $sitemap_id Sitemap post ID.
+	 * @param int  $sitemap_id Sitemap post ID.
+	 * @param bool $is_terms   Whether this is a terms-mode sitemap.
 	 * @return bool True if cached XML exists.
 	 */
-	private function has_cached_xml( int $sitemap_id ): bool {
-		$index_xml = get_post_meta( $sitemap_id, Sitemap_Generator::META_KEY_INDEX_XML, true );
+	private function has_cached_xml( int $sitemap_id, bool $is_terms = false ): bool {
+		$meta_key  = $is_terms
+			? Terms_Sitemap_Generator::META_KEY_INDEX_XML
+			: Sitemap_Generator::META_KEY_INDEX_XML;
+		$index_xml = get_post_meta( $sitemap_id, $meta_key, true );
 
 		return ! empty( $index_xml );
 	}
@@ -399,12 +406,21 @@ class Sitemap_Command extends WP_CLI_Command {
 	/**
 	 * Get total URL count for a sitemap.
 	 *
-	 * Sums all URL counts stored in post meta.
+	 * For Posts mode: Sums all URL counts stored in post meta.
+	 * For Terms mode: Returns the cached term count.
 	 *
-	 * @param int $sitemap_id Sitemap post ID.
-	 * @return int Total URL count.
+	 * @param int  $sitemap_id Sitemap post ID.
+	 * @param bool $is_terms   Whether this is a terms-mode sitemap.
+	 * @return int Total URL/term count.
 	 */
-	private function get_total_url_count( int $sitemap_id ): int {
+	private function get_total_url_count( int $sitemap_id, bool $is_terms = false ): int {
+		if ( $is_terms ) {
+			// Terms mode: return cached term count.
+			$term_count = get_post_meta( $sitemap_id, Terms_Sitemap_Generator::META_KEY_TERM_COUNT, true );
+			return ! empty( $term_count ) ? (int) $term_count : 0;
+		}
+
+		// Posts mode: sum URL counts by period.
 		$url_counts = $this->get_url_counts_by_period( $sitemap_id );
 
 		return array_sum( $url_counts );
@@ -481,11 +497,20 @@ class Sitemap_Command extends WP_CLI_Command {
 	/**
 	 * Regenerate a sitemap's cached XML.
 	 *
+	 * Uses appropriate generator based on sitemap mode (Posts or Terms).
+	 *
 	 * @param WP_Post  $sitemap Sitemap post object.
-	 * @param int|null $year    Optional year to filter regeneration.
-	 * @return array{index: bool, years: array<int>, months: array<string>, days: array<string>} Regeneration summary.
+	 * @param int|null $year    Optional year to filter regeneration (Posts mode only).
+	 * @return array{index: bool, years?: array<int>, months?: array<string>, days?: array<string>, pages?: array<int>} Regeneration summary.
 	 */
 	private function regenerate_sitemap( WP_Post $sitemap, ?int $year = null ): array {
+		// Use appropriate generator based on sitemap mode.
+		if ( Sitemap_CPT::is_terms_mode( $sitemap->ID ) ) {
+			$generator = new Terms_Sitemap_Generator( $sitemap );
+			// Terms mode ignores year filter - always full regeneration.
+			return $generator->regenerate_all();
+		}
+
 		$generator = new Sitemap_Generator( $sitemap );
 
 		// If year is specified, only invalidate and regenerate that year.
@@ -527,8 +552,8 @@ class Sitemap_Command extends WP_CLI_Command {
 	/**
 	 * Display regeneration summary.
 	 *
-	 * @param WP_Post                                                                  $sitemap Sitemap post object.
-	 * @param array{index: bool, years: array<int>, months: array<string>, days: array<string>} $summary Regeneration summary.
+	 * @param WP_Post                                                                                                    $sitemap Sitemap post object.
+	 * @param array{index: bool, years?: array<int>, months?: array<string>, days?: array<string>, pages?: array<int>} $summary Regeneration summary.
 	 * @return void
 	 */
 	private function display_regeneration_summary( WP_Post $sitemap, array $summary ): void {
@@ -548,6 +573,10 @@ class Sitemap_Command extends WP_CLI_Command {
 
 		if ( ! empty( $summary['days'] ) ) {
 			$parts[] = sprintf( '%d day(s)', count( $summary['days'] ) );
+		}
+
+		if ( ! empty( $summary['pages'] ) ) {
+			$parts[] = sprintf( '%d page(s)', count( $summary['pages'] ) );
 		}
 
 		WP_CLI::line( sprintf( '  Regenerated: %s', implode( ', ', $parts ) ) );
