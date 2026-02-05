@@ -294,7 +294,7 @@ pnpm install
 ### Running Tests
 ```bash
 # Start wp-env Docker environment
-pnpm run env:start
+pnpm run start
 
 # Run PHPUnit tests
 pnpm run test:php
