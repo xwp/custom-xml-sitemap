@@ -326,16 +326,25 @@ class Sitemap_Command extends WP_CLI_Command {
 		$items = [];
 
 		foreach ( $sitemaps as $sitemap ) {
-			$url_counts = $this->get_url_counts_by_period( $sitemap->ID );
-			$total_urls = array_sum( $url_counts );
-			$periods    = count( $url_counts );
-			$has_cache  = $this->has_cached_xml( $sitemap->ID );
+			$is_terms  = Sitemap_CPT::is_terms_mode( $sitemap->ID );
+			$has_cache = $this->has_cached_xml( $sitemap->ID, $is_terms );
+
+			if ( $is_terms ) {
+				$term_count = get_post_meta( $sitemap->ID, Terms_Sitemap_Generator::META_KEY_TERM_COUNT, true );
+				$total_urls = ! empty( $term_count ) ? (int) $term_count : 0;
+				$periods    = $total_urls > 0 ? (int) ceil( $total_urls / Terms_Sitemap_Generator::MAX_TERMS_PER_SITEMAP ) : 0;
+			} else {
+				$url_counts = $this->get_url_counts_by_period( $sitemap->ID );
+				$total_urls = array_sum( $url_counts );
+				$periods    = count( $url_counts );
+			}
 
 			$items[] = [
 				'ID'         => $sitemap->ID,
 				'Slug'       => $sitemap->post_name,
+				'Mode'       => $is_terms ? 'Terms' : 'Posts',
 				'Total URLs' => $total_urls,
-				'Periods'    => $periods,
+				'Periods'    => $is_terms ? sprintf( '%d page(s)', $periods ) : $periods,
 				'Cached'     => $has_cache ? 'Yes' : 'No',
 			];
 		}
@@ -636,16 +645,72 @@ class Sitemap_Command extends WP_CLI_Command {
 	/**
 	 * Display detailed statistics for a single sitemap.
 	 *
+	 * Shows different statistics based on sitemap mode:
+	 * - Posts mode: URL counts by time period
+	 * - Terms mode: Total term count and taxonomy info
+	 *
 	 * @param WP_Post $sitemap Sitemap post object.
 	 * @param string  $format  Output format.
 	 * @return void
 	 */
 	private function display_detailed_stats( WP_Post $sitemap, string $format ): void {
-		$config     = Sitemap_CPT::get_sitemap_config( $sitemap->ID );
-		$url_counts = $this->get_url_counts_by_period( $sitemap->ID );
-		$has_cache  = $this->has_cached_xml( $sitemap->ID );
+		$config    = Sitemap_CPT::get_sitemap_config( $sitemap->ID );
+		$is_terms  = Sitemap_CPT::is_terms_mode( $sitemap->ID );
+		$has_cache = $this->has_cached_xml( $sitemap->ID, $is_terms );
 
 		WP_CLI::line( sprintf( 'Sitemap: %s (ID: %d)', $sitemap->post_name, $sitemap->ID ) );
+		WP_CLI::line( sprintf( 'Mode: %s', $is_terms ? 'Terms' : 'Posts' ) );
+
+		if ( $is_terms ) {
+			$this->display_terms_mode_stats( $sitemap, $config, $has_cache );
+		} else {
+			$this->display_posts_mode_stats( $sitemap, $config, $has_cache, $format );
+		}
+	}
+
+	/**
+	 * Display statistics for a Terms mode sitemap.
+	 *
+	 * @param WP_Post              $sitemap   Sitemap post object.
+	 * @param array<string, mixed> $config    Sitemap configuration.
+	 * @param bool                 $has_cache Whether sitemap has cached XML.
+	 * @return void
+	 */
+	private function display_terms_mode_stats( WP_Post $sitemap, array $config, bool $has_cache ): void {
+		$term_count    = get_post_meta( $sitemap->ID, Terms_Sitemap_Generator::META_KEY_TERM_COUNT, true );
+		$hide_empty    = ! empty( $config['terms_hide_empty'] );
+		$taxonomy      = $config['taxonomy'] ?? '-';
+		$taxonomy_obj  = get_taxonomy( $taxonomy );
+		$taxonomy_name = $taxonomy_obj ? $taxonomy_obj->labels->name : $taxonomy;
+
+		WP_CLI::line( sprintf( 'Taxonomy: %s (%s)', $taxonomy_name, $taxonomy ) );
+		WP_CLI::line( sprintf( 'Hide Empty Terms: %s', $hide_empty ? 'Yes' : 'No' ) );
+		WP_CLI::line( sprintf( 'Cache Status: %s', $has_cache ? 'Cached' : 'Not cached' ) );
+		WP_CLI::line( '' );
+
+		if ( empty( $term_count ) ) {
+			WP_CLI::line( 'No term count recorded. Try regenerating the sitemap.' );
+			return;
+		}
+
+		$page_count = (int) ceil( (int) $term_count / Terms_Sitemap_Generator::MAX_TERMS_PER_SITEMAP );
+
+		WP_CLI::line( sprintf( 'Total Terms: %d', (int) $term_count ) );
+		WP_CLI::line( sprintf( 'Sitemap Pages: %d', $page_count ) );
+	}
+
+	/**
+	 * Display statistics for a Posts mode sitemap.
+	 *
+	 * @param WP_Post              $sitemap   Sitemap post object.
+	 * @param array<string, mixed> $config    Sitemap configuration.
+	 * @param bool                 $has_cache Whether sitemap has cached XML.
+	 * @param string               $format    Output format.
+	 * @return void
+	 */
+	private function display_posts_mode_stats( WP_Post $sitemap, array $config, bool $has_cache, string $format ): void {
+		$url_counts = $this->get_url_counts_by_period( $sitemap->ID );
+
 		WP_CLI::line( sprintf( 'Post Type: %s', $config['post_type'] ?? 'post' ) );
 		WP_CLI::line( sprintf( 'Taxonomy: %s', $config['taxonomy'] ?? '-' ) );
 		WP_CLI::line( sprintf( 'Granularity: %s', $config['granularity'] ?? 'month' ) );
