@@ -879,7 +879,7 @@ class Sitemap_Generator {
 
 		global $wpdb;
 
-		// Use %i placeholders for table names - they'll be passed to prepare().
+		// Default JOIN-based clause covers both "no terms selected" and include-mode cases.
 		$result['join']   = 'INNER JOIN %i tr ON p.ID = tr.object_id
 			INNER JOIN %i tt ON tr.term_taxonomy_id = tt.term_taxonomy_id';
 		$result['tables'] = [ $wpdb->term_relationships, $wpdb->term_taxonomy ];
@@ -887,17 +887,43 @@ class Sitemap_Generator {
 		$result['where']    = 'AND tt.taxonomy = %s';
 		$result['values'][] = $this->config['taxonomy'];
 
-		if ( ! empty( $this->config['terms'] ) && is_array( $this->config['terms'] ) ) {
-			// Use wp_parse_id_list for safe integer sanitization.
-			$term_ids = wp_parse_id_list( $this->config['terms'] );
-
-			if ( ! empty( $term_ids ) ) {
-				// Generate placeholders for prepared statement.
-				$placeholders     = implode( ', ', array_fill( 0, count( $term_ids ), '%d' ) );
-				$result['where'] .= " AND tt.term_id IN ({$placeholders})";
-				$result['values'] = array_merge( $result['values'], $term_ids );
-			}
+		if ( empty( $this->config['terms'] ) || ! is_array( $this->config['terms'] ) ) {
+			return $result;
 		}
+
+		$term_ids = wp_parse_id_list( $this->config['terms'] );
+		if ( empty( $term_ids ) ) {
+			return $result;
+		}
+
+		$placeholders = implode( ', ', array_fill( 0, count( $term_ids ), '%d' ) );
+		$is_exclude   = Sitemap_CPT::FILTER_MODE_EXCLUDE === ( $this->config['filter_mode'] ?? Sitemap_CPT::FILTER_MODE_INCLUDE );
+
+		if ( $is_exclude ) {
+			// Exclude mode: NOT EXISTS subquery. Includes posts with no terms in
+			// this taxonomy and excludes posts that have ANY of the selected terms,
+			// even if they also have other terms. Table names move into 'values'
+			// because the %i placeholders live in the WHERE clause.
+			$result['join']   = '';
+			$result['tables'] = [];
+			$result['where']  = "AND NOT EXISTS (
+				SELECT 1 FROM %i etr
+				INNER JOIN %i ett ON etr.term_taxonomy_id = ett.term_taxonomy_id
+				WHERE etr.object_id = p.ID
+				AND ett.taxonomy = %s
+				AND ett.term_id IN ({$placeholders})
+			)";
+			$result['values'] = array_merge(
+				[ $wpdb->term_relationships, $wpdb->term_taxonomy, $this->config['taxonomy'] ],
+				$term_ids
+			);
+
+			return $result;
+		}
+
+		// Include mode: filter to only posts with the specified terms.
+		$result['where'] .= " AND tt.term_id IN ({$placeholders})";
+		$result['values'] = array_merge( $result['values'], $term_ids );
 
 		return $result;
 	}
@@ -914,12 +940,14 @@ class Sitemap_Generator {
 		}
 
 		if ( ! empty( $this->config['terms'] ) && is_array( $this->config['terms'] ) ) {
+			$is_exclude = Sitemap_CPT::FILTER_MODE_EXCLUDE === ( $this->config['filter_mode'] ?? Sitemap_CPT::FILTER_MODE_INCLUDE );
+
 			$args['tax_query'] = [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
 				[
 					'taxonomy' => $this->config['taxonomy'],
 					'field'    => 'term_id',
 					'terms'    => array_map( 'absint', $this->config['terms'] ),
-					'operator' => 'IN',
+					'operator' => $is_exclude ? 'NOT IN' : 'IN',
 				],
 			];
 		}

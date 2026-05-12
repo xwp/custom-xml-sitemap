@@ -110,6 +110,8 @@ class Settings_Panel {
 			id="cxs-sitemap-mode" value="<?php echo esc_attr( $config['mode'] ); ?>" />
 		<input type="hidden" name="<?php echo esc_attr( Sitemap_CPT::META_KEY_TERMS_HIDE_EMPTY ); ?>" 
 			id="cxs-terms-hide-empty" value="<?php echo esc_attr( $config['terms_hide_empty'] ? '1' : '0' ); ?>" />
+		<input type="hidden" name="<?php echo esc_attr( Sitemap_CPT::META_KEY_FILTER_MODE ); ?>" 
+			id="cxs-filter-mode" value="<?php echo esc_attr( $config['filter_mode'] ); ?>" />
 		<?php
 	}
 
@@ -165,6 +167,7 @@ class Settings_Panel {
 			'granularity'      => Sitemap_CPT::GRANULARITY_MONTH,
 			'taxonomy'         => '',
 			'terms'            => [],
+			'filter_mode'      => Sitemap_CPT::FILTER_MODE_INCLUDE,
 			'include_images'   => Sitemap_CPT::INCLUDE_IMAGES_NONE,
 			'include_news'     => false,
 			'terms_hide_empty' => true,
@@ -175,19 +178,30 @@ class Settings_Panel {
 			'cxs-settings-panel',
 			'cxsSettings',
 			[
-				'postTypes'    => $this->get_available_post_types(),
-				'taxonomies'   => $this->get_available_taxonomies(),
-				'savedValues'  => [
+				'postTypes'         => $this->get_available_post_types(),
+				'taxonomies'        => $this->get_available_taxonomies(),
+				'savedValues'       => [
 					'mode'           => $config['mode'],
 					'postType'       => $config['post_type'],
 					'granularity'    => $config['granularity'],
 					'taxonomy'       => $config['taxonomy'],
 					'terms'          => $config['terms'],
+					'filterMode'     => $config['filter_mode'],
 					'includeImages'  => $config['include_images'],
 					'includeNews'    => $config['include_news'],
 					'termsHideEmpty' => $config['terms_hide_empty'],
 				],
-				'modeOptions'   => [
+				'filterModeOptions' => [
+					[
+						'value' => Sitemap_CPT::FILTER_MODE_INCLUDE,
+						'label' => __( 'Include selected terms', 'custom-xml-sitemap' ),
+					],
+					[
+						'value' => Sitemap_CPT::FILTER_MODE_EXCLUDE,
+						'label' => __( 'Exclude selected terms', 'custom-xml-sitemap' ),
+					],
+				],
+				'modeOptions'       => [
 					[
 						'value' => Sitemap_CPT::SITEMAP_MODE_POSTS,
 						'label' => __( 'Posts (list post URLs by date)', 'custom-xml-sitemap' ),
@@ -197,7 +211,7 @@ class Settings_Panel {
 						'label' => __( 'Taxonomy Terms (list term archive URLs)', 'custom-xml-sitemap' ),
 					],
 				],
-				'granularities' => [
+				'granularities'     => [
 					[
 						'value' => Sitemap_CPT::GRANULARITY_YEAR,
 						'label' => __( 'Year', 'custom-xml-sitemap' ),
@@ -211,7 +225,7 @@ class Settings_Panel {
 						'label' => __( 'Day', 'custom-xml-sitemap' ),
 					],
 				],
-				'imageOptions' => [
+				'imageOptions'      => [
 					[
 						'value' => Sitemap_CPT::INCLUDE_IMAGES_NONE,
 						'label' => __( 'None', 'custom-xml-sitemap' ),
@@ -225,8 +239,8 @@ class Settings_Panel {
 						'label' => __( 'All Images', 'custom-xml-sitemap' ),
 					],
 				],
-				'restUrl'      => rest_url(),
-				'nonce'        => wp_create_nonce( 'wp_rest' ),
+				'restUrl'           => rest_url(),
+				'nonce'             => wp_create_nonce( 'wp_rest' ),
 			]
 		);
 	}
@@ -405,6 +419,14 @@ class Settings_Panel {
 		if ( isset( $_POST[ Sitemap_CPT::META_KEY_TERMS_HIDE_EMPTY ] ) ) {
 			$hide_empty = sanitize_text_field( wp_unslash( $_POST[ Sitemap_CPT::META_KEY_TERMS_HIDE_EMPTY ] ) );
 			update_post_meta( $post_id, Sitemap_CPT::META_KEY_TERMS_HIDE_EMPTY, '1' === $hide_empty ? '1' : '0' );
+		}
+
+		// Save term filter mode (include/exclude).
+		if ( isset( $_POST[ Sitemap_CPT::META_KEY_FILTER_MODE ] ) ) {
+			$filter_mode = Sitemap_CPT::sanitize_filter_mode(
+				sanitize_text_field( wp_unslash( $_POST[ Sitemap_CPT::META_KEY_FILTER_MODE ] ) )
+			);
+			update_post_meta( $post_id, Sitemap_CPT::META_KEY_FILTER_MODE, $filter_mode );
 		}
 	}
 

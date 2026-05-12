@@ -90,6 +90,33 @@ class Sitemap_CPT {
 	public const META_KEY_TERMS_HIDE_EMPTY = 'cxs_terms_hide_empty';
 
 	/**
+	 * Meta key for the term filter mode.
+	 *
+	 * Controls whether the selected terms include or exclude posts from the sitemap.
+	 * Only applies when sitemap mode is 'posts' and terms are selected.
+	 *
+	 * @var string
+	 */
+	public const META_KEY_FILTER_MODE = 'cxs_filter_mode';
+
+	/**
+	 * Filter mode: include posts that have any of the selected terms (default).
+	 *
+	 * @var string
+	 */
+	public const FILTER_MODE_INCLUDE = 'include';
+
+	/**
+	 * Filter mode: exclude posts that have any of the selected terms.
+	 *
+	 * Posts with none of the selected terms (including posts with no terms in
+	 * the taxonomy) are listed.
+	 *
+	 * @var string
+	 */
+	public const FILTER_MODE_EXCLUDE = 'exclude';
+
+	/**
 	 * Sitemap mode: Posts (default).
 	 *
 	 * Lists individual post URLs organized by date (year/month/day).
@@ -210,16 +237,17 @@ class Sitemap_CPT {
 	 * Get sitemap configuration for a specific sitemap post.
 	 *
 	 * @param int $post_id Sitemap post ID.
-	 * @return array{mode: string, post_type: string, granularity: string, taxonomy: string, terms: array<int>, include_images: string, include_news: bool, terms_hide_empty: bool} Configuration array.
+	 * @return array{mode: string, post_type: string, granularity: string, taxonomy: string, terms: array<int>, filter_mode: string, include_images: string, include_news: bool, terms_hide_empty: bool} Configuration array.
 	 */
 	public static function get_sitemap_config( int $post_id ): array {
-		$mode            = get_post_meta( $post_id, self::META_KEY_SITEMAP_MODE, true );
-		$post_type       = get_post_meta( $post_id, self::META_KEY_POST_TYPE, true );
-		$granularity     = get_post_meta( $post_id, self::META_KEY_GRANULARITY, true );
-		$taxonomy        = get_post_meta( $post_id, self::META_KEY_TAXONOMY, true );
-		$terms           = get_post_meta( $post_id, self::META_KEY_TAXONOMY_TERMS, true );
-		$include_images  = get_post_meta( $post_id, self::META_KEY_INCLUDE_IMAGES, true );
-		$include_news    = get_post_meta( $post_id, self::META_KEY_INCLUDE_NEWS, true );
+		$mode             = get_post_meta( $post_id, self::META_KEY_SITEMAP_MODE, true );
+		$post_type        = get_post_meta( $post_id, self::META_KEY_POST_TYPE, true );
+		$granularity      = get_post_meta( $post_id, self::META_KEY_GRANULARITY, true );
+		$taxonomy         = get_post_meta( $post_id, self::META_KEY_TAXONOMY, true );
+		$terms            = get_post_meta( $post_id, self::META_KEY_TAXONOMY_TERMS, true );
+		$filter_mode      = get_post_meta( $post_id, self::META_KEY_FILTER_MODE, true );
+		$include_images   = get_post_meta( $post_id, self::META_KEY_INCLUDE_IMAGES, true );
+		$include_news     = get_post_meta( $post_id, self::META_KEY_INCLUDE_NEWS, true );
 		$terms_hide_empty = get_post_meta( $post_id, self::META_KEY_TERMS_HIDE_EMPTY, true );
 
 		return [
@@ -228,6 +256,7 @@ class Sitemap_CPT {
 			'granularity'      => ! empty( $granularity ) ? $granularity : self::GRANULARITY_MONTH,
 			'taxonomy'         => is_string( $taxonomy ) ? $taxonomy : '',
 			'terms'            => is_array( $terms ) ? $terms : [],
+			'filter_mode'      => self::sanitize_filter_mode( $filter_mode ),
 			'include_images'   => ! empty( $include_images ) ? $include_images : self::INCLUDE_IMAGES_NONE,
 			'include_news'     => (bool) $include_news,
 			'terms_hide_empty' => '0' === $terms_hide_empty ? false : true,
@@ -235,11 +264,27 @@ class Sitemap_CPT {
 	}
 
 	/**
+	 * Normalise a filter-mode value to one of the allowed constants.
+	 *
+	 * @param mixed $value Raw stored or submitted value.
+	 * @return string FILTER_MODE_INCLUDE or FILTER_MODE_EXCLUDE.
+	 */
+	public static function sanitize_filter_mode( mixed $value ): string {
+		if ( ! is_string( $value ) ) {
+			return self::FILTER_MODE_INCLUDE;
+		}
+
+		return self::FILTER_MODE_EXCLUDE === $value
+			? self::FILTER_MODE_EXCLUDE
+			: self::FILTER_MODE_INCLUDE;
+	}
+
+	/**
 	 * Get all published sitemaps with their configurations.
 	 *
 	 * Results are cached in the object cache and invalidated when any sitemap changes.
 	 *
-	 * @return array<array{post: WP_Post, config: array{mode: string, post_type: string, granularity: string, taxonomy: string, terms: array<int>, include_images: string, include_news: bool, terms_hide_empty: bool}}> Array of sitemap data.
+	 * @return array<array{post: WP_Post, config: array{mode: string, post_type: string, granularity: string, taxonomy: string, terms: array<int>, filter_mode: string, include_images: string, include_news: bool, terms_hide_empty: bool}}> Array of sitemap data.
 	 */
 	public static function get_all_sitemap_configs(): array {
 		$cached = wp_cache_get( self::CACHE_KEY_ALL_CONFIGS, self::CACHE_GROUP );
@@ -283,7 +328,7 @@ class Sitemap_CPT {
 	 * Get sitemap configs that use a specific post type.
 	 *
 	 * @param string $post_type Post type slug.
-	 * @return array<array{post: WP_Post, config: array{mode: string, post_type: string, granularity: string, taxonomy: string, terms: array<int>, include_images: string, include_news: bool, terms_hide_empty: bool}}> Array of matching sitemap data.
+	 * @return array<array{post: WP_Post, config: array{mode: string, post_type: string, granularity: string, taxonomy: string, terms: array<int>, filter_mode: string, include_images: string, include_news: bool, terms_hide_empty: bool}}> Array of matching sitemap data.
 	 */
 	public static function get_configs_for_post_type( string $post_type ): array {
 		$all_configs = self::get_all_sitemap_configs();

@@ -56,6 +56,7 @@ function SettingsPanel() {
 		granularities,
 		imageOptions,
 		modeOptions,
+		filterModeOptions,
 	} = window.cxsSettings || {};
 
 	// State for form values.
@@ -78,6 +79,9 @@ function SettingsPanel() {
 	);
 	const [ termsHideEmpty, setTermsHideEmpty ] = useState(
 		savedValues?.termsHideEmpty ?? true
+	);
+	const [ filterMode, setFilterMode ] = useState(
+		savedValues?.filterMode || 'include'
 	);
 
 	// Derived state: Check if we're in terms mode.
@@ -216,6 +220,7 @@ function SettingsPanel() {
 		const termsHideEmptyInput = document.getElementById(
 			'cxs-terms-hide-empty'
 		);
+		const filterModeInput = document.getElementById( 'cxs-filter-mode' );
 
 		if ( modeInput ) {
 			modeInput.value = mode;
@@ -243,6 +248,9 @@ function SettingsPanel() {
 		if ( termsHideEmptyInput ) {
 			termsHideEmptyInput.value = termsHideEmpty ? '1' : '0';
 		}
+		if ( filterModeInput ) {
+			filterModeInput.value = filterMode;
+		}
 	}, [
 		mode,
 		postType,
@@ -252,6 +260,7 @@ function SettingsPanel() {
 		includeImages,
 		includeNews,
 		termsHideEmpty,
+		filterMode,
 	] );
 
 	/**
@@ -403,6 +412,19 @@ function SettingsPanel() {
 							) }
 						</p>
 					</div>
+				) }
+
+				{ ! isTermsMode && taxonomy && selectedTerms.length > 0 && (
+					<SelectControl
+						label={ __( 'Filter Mode', 'custom-xml-sitemap' ) }
+						value={ filterMode }
+						options={ filterModeOptions || [] }
+						onChange={ setFilterMode }
+						help={ __(
+							'Choose whether to include or exclude posts with the selected terms.',
+							'custom-xml-sitemap'
+						) }
+					/>
 				) }
 
 				{ isTermsMode && (

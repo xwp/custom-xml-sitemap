@@ -28,6 +28,20 @@ class Mock_Wpdb {
 	public string $postmeta = 'wp_postmeta';
 
 	/**
+	 * Term relationships table name.
+	 *
+	 * @var string
+	 */
+	public string $term_relationships = 'wp_term_relationships';
+
+	/**
+	 * Term taxonomy table name.
+	 *
+	 * @var string
+	 */
+	public string $term_taxonomy = 'wp_term_taxonomy';
+
+	/**
 	 * Last SQL query string passed to prepare().
 	 *
 	 * @var string|null
