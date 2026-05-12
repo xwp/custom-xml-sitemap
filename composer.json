@@ -46,6 +46,11 @@
 			"dealerdirect/phpcodesniffer-composer-installer": true
 		}
 	},
+	"extra": {
+		"installer-paths": {
+			"vendor/{$vendor}/{$name}": ["woocommerce/action-scheduler"]
+		}
+	},
 	"scripts": {
 		"lint": "phpcs",
 		"lint:fix": "phpcbf",
