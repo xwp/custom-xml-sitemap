@@ -1,6 +1,9 @@
 # Custom XML Sitemap
 
 [![Test](https://github.com/xwp/custom-xml-sitemap/actions/workflows/test.yml/badge.svg)](https://github.com/xwp/custom-xml-sitemap/actions/workflows/test.yml)
+[![Latest Stable Version](https://img.shields.io/packagist/v/xwp/custom-xml-sitemap.svg)](https://packagist.org/packages/xwp/custom-xml-sitemap)
+[![License](https://img.shields.io/packagist/l/xwp/custom-xml-sitemap.svg)](https://github.com/xwp/custom-xml-sitemap/blob/main/composer.json)
+[![PHP Version](https://img.shields.io/packagist/dependency-v/xwp/custom-xml-sitemap/php.svg)](https://packagist.org/packages/xwp/custom-xml-sitemap)
 
 A WordPress plugin that generates taxonomy-filtered, hierarchical XML sitemaps with configurable time-based granularity.
 
