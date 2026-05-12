@@ -4,6 +4,43 @@
 
 A WordPress plugin that generates taxonomy-filtered, hierarchical XML sitemaps with configurable time-based granularity.
 
+## Screenshots
+
+<details>
+<summary>Sitemap list — all configured sitemaps at a glance</summary>
+
+![Sitemap list](assets/images/screenshot-sitemap-list.png)
+
+</details>
+
+<details>
+<summary>Sitemap editor — Posts mode with taxonomy filter and filter mode</summary>
+
+![Sitemap editor – Posts mode](assets/images/screenshot-editor-posts-mode.png)
+
+</details>
+
+<details>
+<summary>Sitemap editor — Terms mode for taxonomy archive sitemaps</summary>
+
+![Sitemap editor – Terms mode](assets/images/screenshot-editor-terms-mode.png)
+
+</details>
+
+<details>
+<summary>Rendered XML sitemap index (styled with XSL)</summary>
+
+![XML sitemap index output](assets/images/screenshot-sitemap-index-xml.png)
+
+</details>
+
+<details>
+<summary>Terms sitemap output listing category archive URLs</summary>
+
+![Terms sitemap output](assets/images/screenshot-sitemap-terms-xml.png)
+
+</details>
+
 ## How it Works
 
 The plugin creates a custom post type for defining sitemap configurations. Each sitemap can target a specific post type, filter by taxonomy terms, and split content by year, month, or day granularity. Generated XML is cached and served via custom rewrite rules with XSL stylesheets for browser-friendly display.
@@ -16,6 +53,24 @@ Key features:
 - **robots.txt Integration** - Automatically adds sitemap references
 - **Image Sitemap Support** - Include images in sitemap entries for Google Image Search
 - **News Sitemap Support** - Add Google News publication metadata for news sitemaps
+
+## Sitemap Configuration
+
+Each sitemap is configured via the **Sitemap Settings** metabox in the editor. The available fields depend on the selected mode.
+
+### Posts Mode
+
+| Field | Description |
+|-------|-------------|
+| **Post Type** | The post type to include (e.g. Posts, Pages) |
+| **Granularity** | Date hierarchy: Year, Month, or Day |
+| **Taxonomy Filter** | Optionally restrict by a taxonomy (Categories, Tags, or custom) |
+| **Filter by Terms** | One or more specific terms to match |
+| **Filter Mode** | **Include** (only posts with selected terms) or **Exclude** (all posts except those with selected terms) |
+| **Include Images** | None / Featured Image Only / All Images |
+| **Include News Metadata** | Adds Google News `<news:news>` elements |
+
+Leave **Filter by Terms** empty to include all posts regardless of term assignment.
 
 ## Image and News Sitemaps
 
@@ -86,10 +141,10 @@ Terms mode is useful when you want search engines to index your taxonomy archive
 
 ### Configuration
 
-1. Create a new sitemap under **Custom Sitemaps**
-2. Set **Sitemap Mode** to "Terms"
+1. Create a new sitemap under **Tools > Custom Sitemaps**
+2. Set **Sitemap Mode** to "Taxonomy Terms"
 3. Select the **Taxonomy** to include (required)
-4. Optionally enable **Hide Empty Terms** to exclude terms with no posts
+4. Optionally enable **Hide Empty Terms** to exclude terms with no published posts
 
 ### URL Structure
 
@@ -189,7 +244,7 @@ Then copy the plugin folder to `/wp-content/plugins/` and activate.
 
 ### After Installation
 
-Navigate to **Custom Sitemaps** in the admin menu to create your first sitemap.
+Navigate to **Tools > Custom Sitemaps** in the WordPress admin to create your first sitemap.
 
 ## Sitemap URLs
 
@@ -235,16 +290,6 @@ wp cxs validate <sitemap-slug> [--verbose]
 
 ## Developer Hooks
 
-### `cxs_sitemap_post_types`
-Filter available post types for sitemap configuration.
-
-```php
-add_filter( 'cxs_sitemap_post_types', function( $post_types ) {
-    unset( $post_types['page'] );
-    return $post_types;
-} );
-```
-
 ### `cxs_sitemap_skip_post`
 Skip a post when emitting urlset entries. Return `true` to omit the post (and any image/news extensions) from the generated XML. Useful for excluding noindex posts, paywalled content, or posts that fail an external policy check.
 
@@ -258,25 +303,6 @@ add_filter( 'cxs_sitemap_skip_post', function( $skip, $post_id ) {
 ```
 
 Filtering happens at XML output time, not at the query level, so date-bucket counts and `<lastmod>` values in sitemap indexes may still reflect skipped posts. This is an intentional trade-off to avoid `meta_query` JOINs that hurt generation throughput.
-
-### `cxs_sitemap_url_entry`
-Modify individual URL entries in the sitemap.
-
-```php
-add_filter( 'cxs_sitemap_url_entry', function( $entry, $post ) {
-    // Add custom elements to each URL entry
-    return $entry;
-}, 10, 2 );
-```
-
-### `cxs_sitemap_generated`
-Triggered after a sitemap is regenerated.
-
-```php
-add_action( 'cxs_sitemap_generated', function( $sitemap_id, $stats ) {
-    // Custom logic after sitemap generation
-}, 10, 2 );
-```
 
 ### `cxs_extract_block_images`
 Extract images from custom Gutenberg blocks for image sitemaps.
@@ -297,6 +323,26 @@ add_filter( 'cxs_extract_block_images', function( $images, $block_name, $block, 
 }, 10, 4 );
 ```
 
+### `cxs_excluded_post_types`
+Remove post types from appearing in the sitemap **Post Type** dropdown.
+
+```php
+add_filter( 'cxs_excluded_post_types', function( $excluded ) {
+    $excluded[] = 'page';
+    return $excluded;
+} );
+```
+
+### `cxs_excluded_taxonomies`
+Remove taxonomies from the **Taxonomy Filter** and **Terms Mode** dropdowns.
+
+```php
+add_filter( 'cxs_excluded_taxonomies', function( $excluded ) {
+    $excluded[] = 'post_format';
+    return $excluded;
+} );
+```
+
 ## Local Development & Testing
 
 ### Installation
@@ -308,7 +354,7 @@ pnpm install
 ### Running Tests
 ```bash
 # Start wp-env Docker environment
-pnpm run start
+pnpm env:start
 
 # Run PHPUnit tests
 pnpm run test:php
