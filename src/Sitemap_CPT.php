@@ -257,8 +257,12 @@ class Sitemap_CPT {
 				'order'                  => 'ASC',
 				'no_found_rows'          => true,
 				'update_post_term_cache' => false,
+				'update_post_meta_cache' => false,
 			]
 		);
+
+		// Bulk-prime config meta excluding XML blobs to keep the object cache lean.
+		self::prime_config_meta_cache( wp_list_pluck( $query->posts, 'ID' ) );
 
 		$result = [];
 
@@ -329,6 +333,154 @@ class Sitemap_CPT {
 	 */
 	public static function is_terms_mode( int $post_id ): bool {
 		return self::SITEMAP_MODE_TERMS === self::get_sitemap_mode( $post_id );
+	}
+
+	/**
+	 * Pre-prime the post meta object cache for sitemap posts, excluding large XML blobs.
+	 *
+	 * WordPress's default meta cache priming loads ALL post meta into a single object
+	 * cache entry. For sitemap posts that includes large XML blobs that can exhaust
+	 * Memcached memory. This method primes the cache with only the small config meta,
+	 * so WordPress sees the cache as already populated and skips its own full query.
+	 *
+	 * @param array<int> $post_ids Sitemap post IDs to prime.
+	 * @return void
+	 */
+	public static function prime_config_meta_cache( array $post_ids ): void {
+		global $wpdb;
+
+		$non_cached = [];
+		foreach ( $post_ids as $id ) {
+			$id = (int) $id;
+			if ( $id > 0 && false === wp_cache_get( $id, 'post_meta' ) ) {
+				$non_cached[] = $id;
+			}
+		}
+
+		if ( empty( $non_cached ) ) {
+			return;
+		}
+
+		$id_placeholders = implode( ', ', array_fill( 0, count( $non_cached ), '%d' ) );
+
+		$prepare_values = array_merge(
+			[ $wpdb->postmeta ],
+			$non_cached,
+			[
+				$wpdb->esc_like( Sitemap_Generator::META_KEY_XML_PREFIX ) . '%',
+				Sitemap_Generator::META_KEY_INDEX_XML,
+				$wpdb->esc_like( Terms_Sitemap_Generator::META_KEY_PAGE_XML_PREFIX ) . '%',
+				Terms_Sitemap_Generator::META_KEY_INDEX_XML,
+			]
+		);
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$meta_list = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT post_id, meta_key, meta_value
+				FROM %i
+				WHERE post_id IN ({$id_placeholders})
+				AND meta_key NOT LIKE %s
+				AND meta_key != %s
+				AND meta_key NOT LIKE %s
+				AND meta_key != %s",
+				...$prepare_values
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$cache = [];
+		foreach ( $non_cached as $id ) {
+			$cache[ $id ] = [];
+		}
+		if ( is_array( $meta_list ) ) {
+			foreach ( $meta_list as $row ) {
+				$cache[ (int) $row['post_id'] ][ $row['meta_key'] ][] = $row['meta_value'];
+			}
+		}
+
+		foreach ( $cache as $post_id => $meta ) {
+			wp_cache_add( $post_id, $meta, 'post_meta' );
+		}
+	}
+
+	/**
+	 * Read a meta value directly from the database, bypassing the object cache.
+	 *
+	 * Used for reading large XML blobs stored in post meta without loading them
+	 * into the object cache (Memcached), which could cause memory exhaustion.
+	 *
+	 * @param int    $post_id  Post ID.
+	 * @param string $meta_key Meta key.
+	 * @return string Meta value, or empty string if not found.
+	 */
+	public static function get_meta_direct( int $post_id, string $meta_key ): string {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$value = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT meta_value FROM %i WHERE post_id = %d AND meta_key = %s ORDER BY meta_id DESC LIMIT 1',
+				$wpdb->postmeta,
+				$post_id,
+				$meta_key
+			)
+		);
+
+		return null !== $value ? (string) $value : '';
+	}
+
+	/**
+	 * Write a meta value directly to the database, bypassing the object cache.
+	 *
+	 * Used for writing large XML blobs to post meta without triggering WordPress's
+	 * meta cache priming, which would load all XML into the object cache (Memcached).
+	 *
+	 * Clears the post meta object cache after writing to prevent stale data.
+	 *
+	 * @param int    $post_id  Post ID.
+	 * @param string $meta_key Meta key.
+	 * @param string $value    Meta value.
+	 * @return void
+	 */
+	public static function set_meta_direct( int $post_id, string $meta_key, string $value ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$exists = (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT 1 FROM %i WHERE post_id = %d AND meta_key = %s LIMIT 1',
+				$wpdb->postmeta,
+				$post_id,
+				$meta_key
+			)
+		);
+
+		if ( $exists ) {
+			$wpdb->update(
+				$wpdb->postmeta,
+				[ 'meta_value' => $value ], // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				[
+					'post_id'  => $post_id,
+					'meta_key' => $meta_key, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				]
+			);
+		} else {
+			$wpdb->insert(
+				$wpdb->postmeta,
+				[
+					'post_id'    => $post_id,
+					'meta_key'   => $meta_key, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+					'meta_value' => $value, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				]
+			);
+		}
+
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_delete( $post_id, 'post_meta' );
 	}
 
 	/**

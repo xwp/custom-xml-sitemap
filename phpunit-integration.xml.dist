@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <phpunit
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	bootstrap="tests/phpunit/unit/bootstrap.php"
+	bootstrap="tests/phpunit/integration/bootstrap.php"
 	backupGlobals="false"
 	colors="true"
 	xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
@@ -10,9 +10,6 @@
 		<env name="WORDPRESS_TABLE_PREFIX" value="wp_"/>
 	</php>
 	<testsuites>
-		<testsuite name="unit">
-			<directory prefix="test-" suffix=".php">./tests/phpunit/unit/</directory>
-		</testsuite>
 		<testsuite name="integration">
 			<directory prefix="test-" suffix=".php">./tests/phpunit/integration/</directory>
 		</testsuite>

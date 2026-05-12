@@ -16,7 +16,7 @@ if ( false !== $_phpunit_polyfills_path ) {
 }
 
 // Load the PHPUnit polyfills autoloader.
-require dirname( __DIR__, 2 ) . '/vendor/yoast/phpunit-polyfills/phpunitpolyfills-autoload.php';
+require dirname( __DIR__, 3 ) . '/vendor/yoast/phpunit-polyfills/phpunitpolyfills-autoload.php';
 
 // Give access to tests_add_filter() function.
 require_once "{$_tests_dir}/includes/functions.php";
@@ -27,7 +27,7 @@ require_once "{$_tests_dir}/includes/functions.php";
  * @return void
  */
 function _manually_load_plugin(): void {
-	require dirname( __DIR__, 2 ) . '/custom-xml-sitemap.php';
+	require dirname( __DIR__, 3 ) . '/custom-xml-sitemap.php';
 }
 
 tests_add_filter( 'muplugins_loaded', '_manually_load_plugin' );

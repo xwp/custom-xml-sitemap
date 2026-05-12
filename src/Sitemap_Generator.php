@@ -237,14 +237,14 @@ class Sitemap_Generator {
 	 */
 	public function get_index( bool $force_regenerate = false ): string {
 		if ( ! $force_regenerate ) {
-			$cached = get_post_meta( $this->sitemap_post->ID, self::META_KEY_INDEX_XML, true );
+			$cached = Sitemap_CPT::get_meta_direct( $this->sitemap_post->ID, self::META_KEY_INDEX_XML );
 			if ( ! empty( $cached ) ) {
 				return $cached;
 			}
 		}
 
 		$xml = $this->generate_index();
-		update_post_meta( $this->sitemap_post->ID, self::META_KEY_INDEX_XML, $xml );
+		Sitemap_CPT::set_meta_direct( $this->sitemap_post->ID, self::META_KEY_INDEX_XML, $xml );
 
 		return $xml;
 	}
@@ -260,14 +260,14 @@ class Sitemap_Generator {
 		$meta_key = self::META_KEY_XML_PREFIX . $year;
 
 		if ( ! $force_regenerate ) {
-			$cached = get_post_meta( $this->sitemap_post->ID, $meta_key, true );
+			$cached = Sitemap_CPT::get_meta_direct( $this->sitemap_post->ID, $meta_key );
 			if ( ! empty( $cached ) ) {
 				return $cached;
 			}
 		}
 
 		$xml = $this->generate_year_sitemap( $year );
-		update_post_meta( $this->sitemap_post->ID, $meta_key, $xml );
+		Sitemap_CPT::set_meta_direct( $this->sitemap_post->ID, $meta_key, $xml );
 
 		return $xml;
 	}
@@ -290,7 +290,7 @@ class Sitemap_Generator {
 		$meta_key     = self::META_KEY_XML_PREFIX . $year . '_' . $month_padded;
 
 		if ( ! $force_regenerate ) {
-			$cached = get_post_meta( $this->sitemap_post->ID, $meta_key, true );
+			$cached = Sitemap_CPT::get_meta_direct( $this->sitemap_post->ID, $meta_key );
 			if ( ! empty( $cached ) ) {
 				return $cached;
 			}
@@ -299,7 +299,7 @@ class Sitemap_Generator {
 		$xml       = $this->generate_month_sitemap( $year, $month );
 		$url_count = substr_count( $xml, '<url>' );
 
-		update_post_meta( $this->sitemap_post->ID, $meta_key, $xml );
+		Sitemap_CPT::set_meta_direct( $this->sitemap_post->ID, $meta_key, $xml );
 		update_post_meta( $this->sitemap_post->ID, self::META_KEY_URL_COUNT . $year . '_' . $month_padded, $url_count );
 
 		return $xml;
@@ -322,7 +322,7 @@ class Sitemap_Generator {
 		$meta_key     = self::META_KEY_XML_PREFIX . $year . '_' . $month_padded . '_' . $day_padded;
 
 		if ( ! $force_regenerate ) {
-			$cached = get_post_meta( $this->sitemap_post->ID, $meta_key, true );
+			$cached = Sitemap_CPT::get_meta_direct( $this->sitemap_post->ID, $meta_key );
 			if ( ! empty( $cached ) ) {
 				return $cached;
 			}
@@ -331,7 +331,7 @@ class Sitemap_Generator {
 		$xml       = $this->generate_day_sitemap( $year, $month, $day );
 		$url_count = substr_count( $xml, '<url>' );
 
-		update_post_meta( $this->sitemap_post->ID, $meta_key, $xml );
+		Sitemap_CPT::set_meta_direct( $this->sitemap_post->ID, $meta_key, $xml );
 		update_post_meta( $this->sitemap_post->ID, self::META_KEY_URL_COUNT . $year . '_' . $month_padded . '_' . $day_padded, $url_count );
 
 		return $xml;

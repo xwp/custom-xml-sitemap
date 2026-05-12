@@ -407,7 +407,7 @@ class Sitemap_Command extends WP_CLI_Command {
 		$meta_key  = $is_terms
 			? Terms_Sitemap_Generator::META_KEY_INDEX_XML
 			: Sitemap_Generator::META_KEY_INDEX_XML;
-		$index_xml = get_post_meta( $sitemap_id, $meta_key, true );
+		$index_xml = Sitemap_CPT::get_meta_direct( $sitemap_id, $meta_key );
 
 		return ! empty( $index_xml );
 	}

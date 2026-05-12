@@ -121,14 +121,14 @@ class Terms_Sitemap_Generator {
 	 */
 	public function get_index( bool $force_regenerate = false ): string {
 		if ( ! $force_regenerate ) {
-			$cached = get_post_meta( $this->sitemap_post->ID, self::META_KEY_INDEX_XML, true );
+			$cached = Sitemap_CPT::get_meta_direct( $this->sitemap_post->ID, self::META_KEY_INDEX_XML );
 			if ( ! empty( $cached ) ) {
 				return $cached;
 			}
 		}
 
 		$xml = $this->generate_index();
-		update_post_meta( $this->sitemap_post->ID, self::META_KEY_INDEX_XML, $xml );
+		Sitemap_CPT::set_meta_direct( $this->sitemap_post->ID, self::META_KEY_INDEX_XML, $xml );
 
 		return $xml;
 	}
@@ -152,14 +152,14 @@ class Terms_Sitemap_Generator {
 		$meta_key = self::META_KEY_PAGE_XML_PREFIX . $page;
 
 		if ( ! $force_regenerate ) {
-			$cached = get_post_meta( $this->sitemap_post->ID, $meta_key, true );
+			$cached = Sitemap_CPT::get_meta_direct( $this->sitemap_post->ID, $meta_key );
 			if ( ! empty( $cached ) ) {
 				return $cached;
 			}
 		}
 
 		$xml = $this->generate_page( $page );
-		update_post_meta( $this->sitemap_post->ID, $meta_key, $xml );
+		Sitemap_CPT::set_meta_direct( $this->sitemap_post->ID, $meta_key, $xml );
 
 		return $xml;
 	}

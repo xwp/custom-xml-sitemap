@@ -51,10 +51,12 @@
 		"lint:fix": "phpcbf",
 		"phpstan": "phpstan analyze",
 		"phpunit": "phpunit",
+		"phpunit:unit": "phpunit --testsuite=unit",
+		"phpunit:integration": "phpunit -c phpunit-integration.xml.dist",
 		"test": [
 			"@lint",
 			"@phpstan",
-			"@phpunit"
+			"@phpunit:unit"
 		]
 	}
 }
