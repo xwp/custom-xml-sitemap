@@ -1116,10 +1116,28 @@ class Sitemap_Generator {
 	 *
 	 * Includes image and news extension elements when enabled.
 	 *
+	 * Filters the post through `cxs_sitemap_skip_post` first; returning `true`
+	 * from any handler omits the post (and any image/news extensions) from the
+	 * urlset entirely. Filtering happens at the XML output stage rather than
+	 * at the query level, so date-bucket counts and last-modified values may
+	 * still reflect skipped posts. This is intentional: filtering at the query
+	 * level would require meta_query JOINs that hurt generation throughput at
+	 * scale, and the worst case is a redundant search engine crawl.
+	 *
 	 * @param WP_Post $post Post object.
-	 * @return string XML entry.
+	 * @return string XML entry, or empty string if the post is skipped.
 	 */
 	private function build_url_entry( WP_Post $post ): string {
+		/**
+		 * Filters whether to skip a post when emitting urlset entries.
+		 *
+		 * @param bool $skip    Whether to skip the post. Default false.
+		 * @param int  $post_id Post ID under consideration.
+		 */
+		if ( apply_filters( 'cxs_sitemap_skip_post', false, $post->ID ) ) {
+			return '';
+		}
+
 		$url           = get_permalink( $post );
 		$last_modified = mysql2date( 'c', $post->post_modified_gmt );
 

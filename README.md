@@ -245,6 +245,20 @@ add_filter( 'cxs_sitemap_post_types', function( $post_types ) {
 } );
 ```
 
+### `cxs_sitemap_skip_post`
+Skip a post when emitting urlset entries. Return `true` to omit the post (and any image/news extensions) from the generated XML. Useful for excluding noindex posts, paywalled content, or posts that fail an external policy check.
+
+```php
+add_filter( 'cxs_sitemap_skip_post', function( $skip, $post_id ) {
+    if ( 'noindex' === get_post_meta( $post_id, 'robots_directive', true ) ) {
+        return true;
+    }
+    return $skip;
+}, 10, 2 );
+```
+
+Filtering happens at XML output time, not at the query level, so date-bucket counts and `<lastmod>` values in sitemap indexes may still reflect skipped posts. This is an intentional trade-off to avoid `meta_query` JOINs that hurt generation throughput.
+
 ### `cxs_sitemap_url_entry`
 Modify individual URL entries in the sitemap.
 
