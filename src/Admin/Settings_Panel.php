@@ -470,16 +470,28 @@ class Settings_Panel {
 			return;
 		}
 
-		// Check for URL limit warning.
-		$generator = new Sitemap_Generator( $post );
-		if ( $generator->has_exceeded_url_limit() ) {
-			printf(
-				'<div class="notice notice-warning"><p>%s</p></div>',
-				esc_html__(
-					'Warning: One or more sitemap periods have reached the 1000 URL limit. Consider using a finer granularity setting or splitting into multiple sitemaps.',
-					'custom-xml-sitemap'
-				)
-			);
+		// Posts-mode sitemaps are the only ones that can hit the per-bucket URL limit.
+		if ( Sitemap_CPT::SITEMAP_MODE_POSTS !== Sitemap_CPT::get_sitemap_mode( $post->ID ) ) {
+			return;
 		}
+
+		$generator = new Sitemap_Generator( $post );
+		if ( ! $generator->has_exceeded_url_limit() ) {
+			return;
+		}
+
+		printf(
+			'<div class="notice notice-warning"><p>%s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: %d: maximum number of URLs per sitemap file. */
+					__(
+						'Warning: One or more sitemap periods have reached the %d URL limit. Switch to a finer granularity (month or day) or split this sitemap by selecting fewer terms.',
+						'custom-xml-sitemap'
+					),
+					Sitemap_Generator::MAX_URLS_PER_SITEMAP
+				)
+			)
+		);
 	}
 }

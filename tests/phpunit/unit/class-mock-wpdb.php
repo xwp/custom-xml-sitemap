@@ -28,6 +28,13 @@ class Mock_Wpdb {
 	public string $postmeta = 'wp_postmeta';
 
 	/**
+	 * Posts table name.
+	 *
+	 * @var string
+	 */
+	public string $posts = 'wp_posts';
+
+	/**
 	 * Term relationships table name.
 	 *
 	 * @var string
@@ -163,6 +170,18 @@ class Mock_Wpdb {
 		$this->last_query = $this->normalise_whitespace( $query );
 
 		return $this->results_to_return;
+	}
+
+	/**
+	 * Capture a query() call (DELETE, UPDATE, INSERT…).
+	 *
+	 * @param string $query Prepared SQL.
+	 * @return int Always returns 1.
+	 */
+	public function query( string $query ): int {
+		$this->last_query = $this->normalise_whitespace( $query );
+
+		return 1;
 	}
 
 	/**
