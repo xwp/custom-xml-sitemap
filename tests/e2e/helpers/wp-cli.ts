@@ -122,3 +122,53 @@ export function ensurePrettyPermalinks(): void {
 	wpCli( [ 'option', 'update', 'permalink_structure', '/%postname%/' ] );
 	wpCli( [ 'rewrite', 'flush', '--hard' ] );
 }
+
+/**
+ * Paths to the seed SQL fixture, both on the host and inside the wp-env
+ * container. The container path mirrors the host because the plugin tree is
+ * bind-mounted into wp-env.
+ */
+const SEED_FIXTURE_HOST_GZ = path.join(
+	PLUGIN_ROOT,
+	'tests/e2e/fixtures/seed.sql.gz'
+);
+const SEED_FIXTURE_HOST_SQL = path.join(
+	PLUGIN_ROOT,
+	'tests/e2e/.tmp/seed.sql'
+);
+const SEED_FIXTURE_CONTAINER_SQL =
+	'/var/www/html/wp-content/plugins/custom-xml-sitemap/tests/e2e/.tmp/seed.sql';
+
+/**
+ * Load the e2e seed fixture into the tests DB, replacing whatever's there.
+ *
+ * Decompresses the committed seed.sql.gz on the host (Node has zlib), drops
+ * it into the bind-mounted .tmp/ directory, then runs `wp db import` from
+ * inside the container. Finally restores pretty permalinks because the
+ * exported `permalink_structure` is preserved but the rewrite rules cache
+ * still needs flushing against the current site URL.
+ */
+export function loadSeedFixture(): void {
+	if ( ! require( 'node:fs' ).existsSync( SEED_FIXTURE_HOST_GZ ) ) {
+		throw new Error(
+			`Seed fixture not found at ${ SEED_FIXTURE_HOST_GZ }. ` +
+				'Run tests/e2e/fixtures/build-fixture.php to regenerate it.'
+		);
+	}
+
+	mkdirpSync( path.dirname( SEED_FIXTURE_HOST_SQL ) );
+
+	// Decompress on the host. Sync to keep the helper non-async and match
+	// the rest of the wp-cli helper signatures.
+	const fs = require( 'node:fs' ) as typeof import( 'node:fs' );
+	const zlib = require( 'node:zlib' ) as typeof import( 'node:zlib' );
+	const compressed = fs.readFileSync( SEED_FIXTURE_HOST_GZ );
+	fs.writeFileSync( SEED_FIXTURE_HOST_SQL, zlib.gunzipSync( compressed ) );
+
+	try {
+		wpCli( [ 'db', 'import', SEED_FIXTURE_CONTAINER_SQL ] );
+		ensurePrettyPermalinks();
+	} finally {
+		fs.rmSync( SEED_FIXTURE_HOST_SQL, { force: true } );
+	}
+}

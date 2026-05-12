@@ -74,18 +74,20 @@ test.describe( 'Sitemap routing', () => {
 		} );
 	} );
 
-	test.describe( 'Terms mode', () => {
+	test.describe( 'Terms mode (small taxonomy)', () => {
+		// Use post_tag for the sub-1000 case so the seed fixture's 1100
+		// fx-cat categories don't bleed into the assertions.
 		let sitemapId: number;
 		let termIds: number[] = [];
 
 		test.beforeAll( () => {
 			for ( let i = 1; i <= 3; i++ ) {
-				const tid = createTerm( 'category', `e2e-term-${ i }`, `e2e-term-${ i }` );
+				const tid = createTerm( 'post_tag', `e2e-term-${ i }`, `e2e-term-${ i }` );
 				termIds.push( tid );
 				createPost( {
 					title: `e2e-term-${ i }-post`,
 					slug: `e2e-term-${ i }-post`,
-					terms: [ { taxonomy: 'category', ids: [ tid ] } ],
+					terms: [ { taxonomy: 'post_tag', ids: [ tid ] } ],
 				} );
 			}
 
@@ -93,7 +95,7 @@ test.describe( 'Sitemap routing', () => {
 				title: 'e2e Terms Routing',
 				slug: 'e2e-terms-routing',
 				mode: 'terms',
-				taxonomy: 'category',
+				taxonomy: 'post_tag',
 				termsHideEmpty: true,
 			} );
 			regenerateSitemap( sitemapId );
@@ -102,7 +104,7 @@ test.describe( 'Sitemap routing', () => {
 		test.afterAll( () => {
 			wpCli( [ 'post', 'delete', String( sitemapId ), '--force' ] );
 			for ( const tid of termIds ) {
-				wpCli( [ 'term', 'delete', 'category', String( tid ) ] );
+				wpCli( [ 'term', 'delete', 'post_tag', String( tid ) ] );
 			}
 		} );
 
@@ -122,6 +124,44 @@ test.describe( 'Sitemap routing', () => {
 			expect( res.status ).toBe( 200 );
 			expect( res.body ).toContain( '<urlset' );
 			expect( res.body ).not.toContain( '<url>' );
+		} );
+	} );
+
+	test.describe( 'Terms mode (paginated, >1000)', () => {
+		// Backed by the seed fixture's 1100 fx-cat categories, all attached
+		// to fx-spread-2023-* posts so hide_empty=true keeps them. Triggers
+		// the page-N.xml split in Terms_Sitemap_Generator.
+		let sitemapId: number;
+
+		test.beforeAll( () => {
+			sitemapId = createSitemap( {
+				title: 'e2e Terms Paginated',
+				slug: 'e2e-terms-paginated',
+				mode: 'terms',
+				taxonomy: 'category',
+				termsHideEmpty: true,
+			} );
+			regenerateSitemap( sitemapId );
+		} );
+
+		test.afterAll( () => {
+			wpCli( [ 'post', 'delete', String( sitemapId ), '--force' ] );
+		} );
+
+		test( 'index.xml returns sitemapindex with page-* entries', async () => {
+			const res = await fetchSitemap( '/sitemaps/e2e-terms-paginated/index.xml' );
+			expect( res.status ).toBe( 200 );
+			expect( res.body ).toContain( '<sitemapindex' );
+			expect( res.body ).toContain( '/sitemaps/e2e-terms-paginated/page-1.xml' );
+			expect( res.body ).toContain( '/sitemaps/e2e-terms-paginated/page-2.xml' );
+		} );
+
+		test( 'page-1.xml returns the first 1000 term URLs', async () => {
+			const res = await fetchSitemap( '/sitemaps/e2e-terms-paginated/page-1.xml' );
+			expect( res.status ).toBe( 200 );
+			expect( res.body ).toContain( '<urlset' );
+			// At least one of the seeded categories should be present.
+			expect( res.body ).toMatch( /\/category\/fx-cat-/ );
 		} );
 	} );
 

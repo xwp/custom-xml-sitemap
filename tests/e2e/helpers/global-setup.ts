@@ -9,7 +9,7 @@
 import { chromium, FullConfig, request } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { ensurePrettyPermalinks, wpCli } from './wp-cli';
+import { ensurePrettyPermalinks, loadSeedFixture, wpCli } from './wp-cli';
 
 const STORAGE_DIR = path.join( __dirname, '..', '.auth' );
 const STORAGE_STATE = path.join( STORAGE_DIR, 'admin.json' );
@@ -23,9 +23,17 @@ export default async function globalSetup( config: FullConfig ): Promise<void> {
 
 	fs.mkdirSync( STORAGE_DIR, { recursive: true } );
 
-	// Reset baseline state via WP-CLI before any browser interaction.
+	// Reload the committed seed fixture (1000 bulk posts in 2024-06,
+	// 500 spread posts across 2023, 1100 categories, 25 posts with featured
+	// images). Replaces whatever's currently in the tests DB so each run
+	// starts from a deterministic baseline. Also re-applies pretty
+	// permalinks afterwards.
+	loadSeedFixture();
+
+	// Reset transient state on top of the fixture: drop any e2e- (not fx-)
+	// CPT/term/post fixtures left behind by prior runs and cancel pending AS
+	// jobs that may have been written into the dump.
 	resetBaselineState();
-	ensurePrettyPermalinks();
 
 	// Log in once and persist auth.
 	const browser = await chromium.launch();
@@ -49,16 +57,18 @@ export default async function globalSetup( config: FullConfig ): Promise<void> {
  * because some specs assert default categories survive.
  */
 function resetBaselineState(): void {
-	// Ensure the plugin is active in the tests environment. wp-env activates
-	// plugins for the dev container automatically but the tests container
-	// needs a manual nudge; without it WP-CLI eval can't see plugin classes.
+	// Plugin activation is idempotent. wp-env activates plugins for the dev
+	// container automatically but the tests container needs a manual nudge
+	// after every fixture reload, otherwise WP-CLI eval can't see plugin
+	// classes.
 	try {
 		wpCli( [ 'plugin', 'activate', 'custom-xml-sitemap' ] );
 	} catch ( _e ) {
 		// Already active is not an error worth surfacing.
 	}
 
-	// Delete any leftover sitemap CPTs from prior runs.
+	// Delete any leftover sitemap CPTs (e.g. fixtures left mid-run). The
+	// dump itself doesn't include any.
 	wpCli( [
 		'post',
 		'list',
@@ -86,19 +96,25 @@ function resetBaselineState(): void {
 	deleteTermsMatching( 'post_tag', 'e2e-' );
 	deleteTermsMatching( 'category', 'e2e-' );
 
-	// Drop any e2e-prefixed posts (regular posts, not the sitemap CPT we already cleared).
-	const postIds = wpCli( [
+	// Drop any e2e-prefixed posts left behind. `wp post list --name__like` is
+	// silently ignored (not a real filter), so we list ID+post_name and
+	// filter on the host. Scanning ~1500 fixture posts is still ~1s.
+	const json = wpCli( [
 		'post',
 		'list',
 		'--post_type=post',
-		'--name__like=e2e-%',
 		'--post_status=any',
-		'--format=ids',
+		'--fields=ID,post_name',
+		'--format=json',
+		'--posts_per_page=-1',
 	] );
-	postIds
-		.split( /\s+/ )
-		.filter( Boolean )
-		.forEach( ( id ) => wpCli( [ 'post', 'delete', id, '--force' ] ) );
+	const posts = ( JSON.parse( json || '[]' ) as Array< {
+		ID: number;
+		post_name: string;
+	} > ).filter( ( p ) => p.post_name.startsWith( 'e2e-' ) );
+	for ( const p of posts ) {
+		wpCli( [ 'post', 'delete', String( p.ID ), '--force' ] );
+	}
 }
 
 /**

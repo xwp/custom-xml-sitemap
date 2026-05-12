@@ -47,11 +47,15 @@ test.describe( 'Term CRUD invalidation', () => {
 	let sitemapId: number;
 
 	test.beforeAll( () => {
+		// post_tag is empty in the seed fixture; using `category` would put us
+		// over 1000 terms and trigger the paginated <sitemapindex> path. The
+		// invalidation logic itself is taxonomy-agnostic, so post_tag exercises
+		// the same scheduler hooks with simpler XML to assert against.
 		sitemapId = createSitemap( {
 			title: 'e2e Term Invalidation',
 			slug: 'e2e-term-invalidation',
 			mode: 'terms',
-			taxonomy: 'category',
+			taxonomy: 'post_tag',
 			termsHideEmpty: false,
 		} );
 		regenerateSitemap( sitemapId );
@@ -71,7 +75,7 @@ test.describe( 'Term CRUD invalidation', () => {
 	test( 'created_term schedules a regeneration job', () => {
 		expect( countPendingScheduledJobs( 'cxs_regenerate_sitemap_all' ) ).toBe( 0 );
 
-		createTerm( 'category', 'e2e-invalidation-cat', 'e2e-invalidation-cat' );
+		createTerm( 'post_tag', 'e2e-invalidation-tag', 'e2e-invalidation-tag' );
 
 		expect( countPendingScheduledJobs( 'cxs_regenerate_sitemap_all' ) ).toBe( 1 );
 	} );
@@ -79,15 +83,15 @@ test.describe( 'Term CRUD invalidation', () => {
 	test( 'multiple rapid edits debounce to a single pending job', () => {
 		// Use a unique slug so retries on this single test don't collide with
 		// a leftover term in the DB.
-		const slug = `e2e-debounce-cat-${ Date.now() }`;
-		const termId = createTerm( 'category', slug, slug );
+		const slug = `e2e-debounce-tag-${ Date.now() }`;
+		const termId = createTerm( 'post_tag', slug, slug );
 
 		// Multiple updates in quick succession. Each triggers `edited_term`,
 		// but the scheduler should collapse them into a single pending job
 		// alongside the one enqueued by `created_term` above.
-		wpCli( [ 'term', 'update', 'category', String( termId ), '--name=edit-1' ] );
-		wpCli( [ 'term', 'update', 'category', String( termId ), '--name=edit-2' ] );
-		wpCli( [ 'term', 'update', 'category', String( termId ), '--name=edit-3' ] );
+		wpCli( [ 'term', 'update', 'post_tag', String( termId ), '--name=edit-1' ] );
+		wpCli( [ 'term', 'update', 'post_tag', String( termId ), '--name=edit-2' ] );
+		wpCli( [ 'term', 'update', 'post_tag', String( termId ), '--name=edit-3' ] );
 
 		// One job total: the create + edits all coalesce on the same hook+args.
 		expect( countPendingScheduledJobs( 'cxs_regenerate_sitemap_all' ) ).toBe( 1 );
@@ -96,7 +100,7 @@ test.describe( 'Term CRUD invalidation', () => {
 	test( 'running the scheduler queue refreshes the XML', async () => {
 		// Use a unique slug per run so retries don't collide on the WP unique-name check.
 		const uniq = `e2e-fresh-${ Date.now() }`;
-		const newTermId = createTerm( 'category', uniq, uniq );
+		const newTermId = createTerm( 'post_tag', uniq, uniq );
 
 		runScheduledJobs();
 
@@ -104,6 +108,6 @@ test.describe( 'Term CRUD invalidation', () => {
 		expect( res.body ).toContain( uniq );
 
 		// Cleanup the term.
-		wpCli( [ 'term', 'delete', 'category', String( newTermId ) ] );
+		wpCli( [ 'term', 'delete', 'post_tag', String( newTermId ) ] );
 	} );
 } );
