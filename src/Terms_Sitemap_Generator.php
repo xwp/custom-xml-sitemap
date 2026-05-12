@@ -309,7 +309,7 @@ class Terms_Sitemap_Generator {
 		$term_count = $this->get_terms_count();
 
 		// Cache the term count for stats/debugging.
-		update_post_meta( $this->sitemap_post->ID, self::META_KEY_TERM_COUNT, $term_count );
+		Sitemap_CPT::set_meta_direct( $this->sitemap_post->ID, self::META_KEY_TERM_COUNT, (string) $term_count );
 
 		// If no terms, return empty urlset.
 		if ( 0 === $term_count ) {
