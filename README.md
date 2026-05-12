@@ -5,26 +5,35 @@
 [![License](https://img.shields.io/packagist/l/xwp/custom-xml-sitemap.svg)](https://github.com/xwp/custom-xml-sitemap/blob/main/composer.json)
 [![PHP Version](https://img.shields.io/packagist/dependency-v/xwp/custom-xml-sitemap/php.svg)](https://packagist.org/packages/xwp/custom-xml-sitemap)
 
-A WordPress plugin that generates taxonomy-filtered, hierarchical XML sitemaps with configurable time-based granularity.
+A WordPress plugin that generates taxonomy-filtered, hierarchical XML sitemaps with configurable time-based granularity (year / month / day) and a separate Terms mode for taxonomy archive sitemaps. Built for high-traffic publishers on WordPress VIP, with Action Scheduler–backed regeneration, a Memcached-safe XML cache, and a React-based admin UI.
+
+> [!IMPORTANT]
+> **Best suited for WordPress VIP (or any environment with a reliable background job runner).**
+>
+> This plugin relies on [Action Scheduler](https://actionscheduler.org/) to regenerate sitemap XML asynchronously when content changes. Sitemap files are never built inline during a front-end request; they're written ahead of time by Action Scheduler workers and served from cached post meta.
+>
+> If Action Scheduler isn't being driven by a real scheduler (WP VIP cron, a system cron hitting `wp action-scheduler run`, or equivalent), sitemap output **will become stale or stop updating entirely**. The default WP-Cron is best-effort and depends on front-end traffic; it works for low-volume sites but is not recommended for production.
+>
+> See the [Requirements](#requirements) section for setup details.
 
 ## Screenshots
 
 <details>
-<summary>Sitemap list — all configured sitemaps at a glance</summary>
+<summary>Sitemap list: all configured sitemaps at a glance</summary>
 
 ![Sitemap list](assets/images/screenshot-sitemap-list.png)
 
 </details>
 
 <details>
-<summary>Sitemap editor — Posts mode with taxonomy filter and filter mode</summary>
+<summary>Sitemap editor: Posts mode with taxonomy filter and filter mode</summary>
 
 ![Sitemap editor – Posts mode](assets/images/screenshot-editor-posts-mode.png)
 
 </details>
 
 <details>
-<summary>Sitemap editor — Terms mode for taxonomy archive sitemaps</summary>
+<summary>Sitemap editor: Terms mode for taxonomy archive sitemaps</summary>
 
 ![Sitemap editor – Terms mode](assets/images/screenshot-editor-terms-mode.png)
 
@@ -200,17 +209,41 @@ For taxonomies with 1000 or fewer terms, the index.xml contains all term URLs di
 
 - PHP 8.4+
 - WordPress 6.0+
-- [Action Scheduler](https://actionscheduler.org/) (bundled with the plugin)
+- [Action Scheduler](https://actionscheduler.org/) (bundled with the plugin via Composer)
+- Pretty permalinks enabled
 
-### WordPress VIP
+### Action Scheduler must be running
 
-This plugin is designed for WordPress VIP environments. Action Scheduler must be actively running to handle automatic sitemap regeneration when content changes. On VIP, Action Scheduler runs via the cron system which is managed by the platform.
+All XML generation happens off-request, inside Action Scheduler jobs. The plugin schedules:
 
-For local development or non-VIP environments, ensure Action Scheduler jobs are being processed either via WP-Cron or by running:
+- A **recurring job** per published sitemap (regenerates the full set of buckets on a configurable cadence)
+- **On-change jobs** triggered by post/term saves, deletes, and meta updates (with a 5-minute debounce per sitemap)
 
-```bash
-wp action-scheduler run
-```
+If Action Scheduler isn't being processed, none of those jobs run and the cached XML will go stale. The first request after activation will trigger a queue, but ongoing updates depend on a live worker.
+
+#### WordPress VIP (recommended)
+
+VIP runs Action Scheduler under its managed cron infrastructure. No additional setup is required; install, activate, configure sitemaps, and the platform handles the rest.
+
+#### Self-hosted / non-VIP
+
+You need to drive Action Scheduler explicitly. Pick **one** of:
+
+- **System cron (recommended for production)**: schedule a frequent CLI invocation:
+
+  ```cron
+  * * * * * cd /path/to/wordpress && wp action-scheduler run --batch-size=50 --batches=5 >/dev/null 2>&1
+  ```
+
+- **Long-running worker**: run continuously via a process supervisor (systemd, supervisord, etc.):
+
+  ```bash
+  wp action-scheduler run --batch-size=50 --batches=0
+  ```
+
+- **WP-Cron (low-traffic sites only)**: works out of the box but only fires on front-end requests. Not recommended for production: a low-traffic site can lag arbitrarily, and a site that's entirely behind a cache may never trigger it. To use this, ensure `DISABLE_WP_CRON` is unset.
+
+To verify the queue is being drained, watch **Tools → Scheduled Actions** in the WP admin or run `wp action-scheduler status`.
 
 ## Installation
 
