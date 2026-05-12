@@ -72,6 +72,9 @@ jobs:
             --exclude='phpstan.neon' \
             --exclude='phpstan-bootstrap.php' \
             --exclude='phpunit.xml.dist' \
+            --exclude='phpunit-integration.xml.dist' \
+            --exclude='playwright-report' \
+            --exclude='test-results' \
             --exclude='webpack.config.js' \
             --exclude='package.json' \
             --exclude='pnpm-lock.yaml' \
