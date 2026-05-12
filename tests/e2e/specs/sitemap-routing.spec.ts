@@ -166,11 +166,11 @@ test.describe( 'Sitemap routing', () => {
 	} );
 
 	test( 'XSL stylesheets resolve', async () => {
-		const sitemap = await fetchSitemap( '/cxs-sitemap.xsl' );
+		const sitemap = await fetchSitemap( '/cxs-stylesheet.xsl' );
 		expect( sitemap.status ).toBe( 200 );
 		expect( sitemap.contentType ).toMatch( /xslt\+xml/ );
 
-		const index = await fetchSitemap( '/cxs-sitemap-index.xsl' );
+		const index = await fetchSitemap( '/cxs-stylesheet-index.xsl' );
 		expect( index.status ).toBe( 200 );
 	} );
 } );

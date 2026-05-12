@@ -101,7 +101,7 @@ class Test_Terms_Sitemap_Generator extends WP_UnitTestCase {
 		$this->assertStringContainsString( '</urlset>', $xml );
 		$this->assertStringContainsString( 'xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"', $xml );
 		$this->assertStringContainsString( 'xml-stylesheet', $xml );
-		$this->assertStringContainsString( 'cxs-sitemap.xsl', $xml );
+		$this->assertStringContainsString( 'cxs-stylesheet.xsl', $xml );
 	}
 
 	/**

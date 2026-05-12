@@ -185,7 +185,7 @@ Node `fetch` from the host (port-mapped to `:8889`).
 Apache in wp-env occasionally drops keep-alive. The helper retries once with
 `connection: close`; if you see this in your own helper, copy the retry.
 
-**`/cxs-sitemap.xsl` returns 301.**
+**`/cxs-stylesheet.xsl` returns 301.**
 `redirect_canonical` adds a trailing slash. `fetchSitemap` follows redirects
 by default; if you're using raw `fetch`, set `redirect: 'follow'`.
 

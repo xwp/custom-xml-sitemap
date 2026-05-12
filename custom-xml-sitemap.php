@@ -13,7 +13,7 @@
  * Plugin Name: Custom XML Sitemap
  * Plugin URI:  https://github.com/xwp/custom-xml-sitemap
  * Description: Custom taxonomy-based XML sitemap generator with configurable granularity.
- * Version:     1.0.0
+ * Version:     1.0.1
  * Author:      XWP
  * Author URI:  https://xwp.co
  * License:     GPL-2.0-or-later

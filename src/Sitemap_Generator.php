@@ -1012,7 +1012,7 @@ class Sitemap_Generator {
 	 * @return string XML header.
 	 */
 	private function get_sitemap_index_header(): string {
-		$xsl_url = home_url( '/cxs-sitemap-index.xsl' );
+		$xsl_url = home_url( '/cxs-stylesheet-index.xsl' );
 
 		return '<?xml version="1.0" encoding="UTF-8"?>' . "\n" .
 			'<?xml-stylesheet type="text/xsl" href="' . esc_url( $xsl_url ) . '"?>' . "\n" .
@@ -1037,7 +1037,7 @@ class Sitemap_Generator {
 	 * @return string XML header.
 	 */
 	private function get_urlset_header(): string {
-		$xsl_url    = home_url( '/cxs-sitemap.xsl' );
+		$xsl_url    = home_url( '/cxs-stylesheet.xsl' );
 		$namespaces = $this->build_namespace_attributes();
 
 		return '<?xml version="1.0" encoding="UTF-8"?>' . "\n" .

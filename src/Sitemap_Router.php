@@ -102,22 +102,30 @@ class Sitemap_Router {
 	 * - /sitemaps/{type}/page-{n}.xml (when > 1000 terms)
 	 *
 	 * Also registers rules for XSL stylesheets:
-	 * - /cxs-sitemap.xsl
-	 * - /cxs-sitemap-index.xsl
+	 * - /cxs-stylesheet.xsl
+	 * - /cxs-stylesheet-index.xsl
+	 *
+	 * Note: We deliberately avoid the `*-sitemap.xsl` URL shape because
+	 * Yoast SEO (and a few other SEO plugins) register a rewrite rule
+	 * `^([^/]+?)-sitemap\.xsl$` that captures any top-level URL matching
+	 * that pattern. If we used `/cxs-sitemap.xsl`, Yoast would intercept
+	 * the request and respond with an empty body, breaking the browser
+	 * XSL transform on every leaf sitemap. The `-stylesheet.xsl` suffix
+	 * sidesteps this collision entirely.
 	 *
 	 * @return void
 	 */
 	public function register_rewrite_rules(): void {
-		// XSL stylesheet: /cxs-sitemap.xsl.
+		// XSL stylesheet: /cxs-stylesheet.xsl.
 		add_rewrite_rule(
-			'^cxs-sitemap\.xsl$',
+			'^cxs-stylesheet\.xsl$',
 			'index.php?' . self::QUERY_VAR_XSL . '=sitemap',
 			'top'
 		);
 
-		// XSL stylesheet: /cxs-sitemap-index.xsl.
+		// XSL stylesheet: /cxs-stylesheet-index.xsl.
 		add_rewrite_rule(
-			'^cxs-sitemap-index\.xsl$',
+			'^cxs-stylesheet-index\.xsl$',
 			'index.php?' . self::QUERY_VAR_XSL . '=sitemap-index',
 			'top'
 		);

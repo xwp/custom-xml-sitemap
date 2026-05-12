@@ -158,7 +158,7 @@ class Test_Sitemap_Generator extends WP_UnitTestCase {
 		$xml = $generator->get_index();
 
 		$this->assertStringContainsString( '<?xml-stylesheet', $xml );
-		$this->assertStringContainsString( 'cxs-sitemap-index.xsl', $xml );
+		$this->assertStringContainsString( 'cxs-stylesheet-index.xsl', $xml );
 	}
 
 	/**

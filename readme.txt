@@ -3,7 +3,7 @@ Contributors: xwp
 Tags: sitemap, xml, seo, taxonomy, action-scheduler
 Requires at least: 6.0
 Tested up to: 6.7
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 Requires PHP: 8.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -43,6 +43,9 @@ Yes, this plugin is designed for WordPress VIP environments. Action Scheduler mu
 The plugin provides `wp cxs list`, `wp cxs generate`, `wp cxs stats`, and `wp cxs validate` commands for sitemap management.
 
 == Changelog ==
+
+= 1.0.1 =
+* Rename XSL stylesheet URLs from `/cxs-sitemap.xsl` and `/cxs-sitemap-index.xsl` to `/cxs-stylesheet.xsl` and `/cxs-stylesheet-index.xsl` to avoid collision with Yoast SEO's `*-sitemap.xsl` rewrite rule, which would otherwise return an empty response and break the in-browser XML rendering.
 
 = 1.0.0 =
 * Initial release.
