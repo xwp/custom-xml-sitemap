@@ -167,6 +167,11 @@ export function loadSeedFixture(): void {
 
 	try {
 		wpCli( [ 'db', 'import', SEED_FIXTURE_CONTAINER_SQL ] );
+		// The committed fixture was dumped against an older WP core, so the
+		// db_version option may lag behind the running WP. Without this,
+		// every admin page redirects to /wp-admin/upgrade.php and React
+		// never mounts. Idempotent when the DB is already up-to-date.
+		wpCli( [ 'core', 'update-db' ] );
 		ensurePrettyPermalinks();
 	} finally {
 		fs.rmSync( SEED_FIXTURE_HOST_SQL, { force: true } );
