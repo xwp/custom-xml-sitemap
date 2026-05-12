@@ -8,6 +8,9 @@
 	"scripts": {
 		"build": "wp-scripts build",
 		"dev": "wp-scripts start",
+		"env:start": "wp-env start",
+		"env:stop": "wp-env stop",
+		"env:destroy": "wp-env destroy",
 		"start": "wp-env start",
 		"stop": "wp-env stop",
 		"lint:js": "wp-scripts lint-js",
@@ -15,13 +18,18 @@
 		"i18n:pot": "wp-env run cli wp i18n make-pot wp-content/plugins/custom-xml-sitemap wp-content/plugins/custom-xml-sitemap/languages/custom-xml-sitemap.pot --domain=custom-xml-sitemap",
 		"i18n:json": "wp-env run cli wp i18n make-json wp-content/plugins/custom-xml-sitemap/languages --no-purge",
 		"wp-env": "wp-env",
-		"env:destroy": "wp-env destroy",
 		"composer": "wp-env run cli --env-cwd=wp-content/plugins/custom-xml-sitemap composer",
 		"composer:tests-cli": "wp-env run tests-cli --env-cwd=wp-content/plugins/custom-xml-sitemap composer",
-		"test:php": "wp-env run tests-cli --env-cwd=wp-content/plugins/custom-xml-sitemap ./vendor/bin/phpunit"
+		"test:php": "wp-env run tests-cli --env-cwd=wp-content/plugins/custom-xml-sitemap ./vendor/bin/phpunit",
+		"test:e2e": "playwright test --config tests/e2e/playwright.config.ts",
+		"test:e2e:ui": "playwright test --config tests/e2e/playwright.config.ts --ui",
+		"test:e2e:install": "playwright install --with-deps chromium"
 	},
 	"devDependencies": {
 		"@babel/runtime": "^7.28.6",
+		"@playwright/test": "^1.48.0",
+		"@types/node": "^20.0.0",
+		"@wordpress/e2e-test-utils-playwright": "^1.19.0",
 		"@wordpress/env": "^10.0.0",
 		"@wordpress/scripts": "^28.0.0"
 	}
